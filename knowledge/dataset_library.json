@@ -1,0 +1,182 @@
+{
+  "tabular": [
+    {
+      "name": "CCPP Power Plant",
+      "used": true,
+      "rows": 9568,
+      "features": 4,
+      "task": "regression"
+    },
+    {
+      "name": "WHO Life Expectancy",
+      "used": true,
+      "rows": 2938,
+      "features": 20,
+      "task": "regression"
+    },
+    {
+      "name": "Apple Quality (Kaggle)",
+      "used": true,
+      "rows": 4000,
+      "features": 7,
+      "task": "classification"
+    },
+    {
+      "name": "Exercise + Calories (Kaggle)",
+      "used": true,
+      "rows": 15000,
+      "features": 7,
+      "task": "regression"
+    },
+    {
+      "name": "Jena Climate",
+      "used": true,
+      "rows": 70091,
+      "features": 14,
+      "task": "time_series"
+    },
+    {
+      "name": "CCPP Combined Cycle Power Plant",
+      "used": true,
+      "task": "regression"
+    },
+    {
+      "name": "Boston Housing",
+      "used": false,
+      "task": "regression"
+    },
+    {
+      "name": "Diabetes (sklearn)",
+      "used": false,
+      "task": "regression"
+    },
+    {
+      "name": "Breast Cancer (sklearn)",
+      "used": false,
+      "task": "classification"
+    },
+    {
+      "name": "Iris (sklearn)",
+      "used": false,
+      "task": "classification"
+    },
+    {
+      "name": "Wine Quality (UCI)",
+      "used": false,
+      "task": "classification"
+    }
+  ],
+  "nlp": [
+    {
+      "name": "Twitter US Airline Sentiment",
+      "used": true,
+      "rows": 14640,
+      "task": "sentiment"
+    },
+    {
+      "name": "Google Play Store reviews",
+      "used": true,
+      "rows": 2500,
+      "task": "clustering"
+    },
+    {
+      "name": "GMB corpus CoNLL-2003",
+      "used": true,
+      "task": "ner"
+    },
+    {
+      "name": "MRPC",
+      "used": true,
+      "task": "paraphrase_detection"
+    },
+    {
+      "name": "SubjQA",
+      "used": true,
+      "task": "qa"
+    },
+    {
+      "name": "Clockmaker's Garden corpus",
+      "used": true,
+      "task": "text_generation"
+    },
+    {
+      "name": "IMDB Movie Reviews",
+      "used": false,
+      "task": "sentiment"
+    },
+    {
+      "name": "AG News",
+      "used": false,
+      "task": "classification"
+    },
+    {
+      "name": "20 Newsgroups",
+      "used": false,
+      "task": "classification"
+    }
+  ],
+  "cv": [
+    {
+      "name": "PlantVillage tomato (6 classes, 64x64)",
+      "used": true,
+      "source": "s3"
+    },
+    {
+      "name": "Synthetic traffic signs (32x32, 10 classes)",
+      "used": true,
+      "source": "s3"
+    },
+    {
+      "name": "Synthetic SVHN-style digits (32x32, 10 classes)",
+      "used": true,
+      "source": "s3"
+    },
+    {
+      "name": "UC Merced Land Use aerial imagery",
+      "used": true,
+      "source": "s3"
+    },
+    {
+      "name": "CIFAR10",
+      "used": false,
+      "source": "torchvision",
+      "classes": 10
+    },
+    {
+      "name": "CIFAR100",
+      "used": false,
+      "source": "torchvision",
+      "classes": 100
+    },
+    {
+      "name": "MNIST",
+      "used": false,
+      "source": "torchvision",
+      "classes": 10
+    },
+    {
+      "name": "FashionMNIST",
+      "used": false,
+      "source": "torchvision",
+      "classes": 10
+    },
+    {
+      "name": "STL10",
+      "used": false,
+      "source": "torchvision",
+      "classes": 10
+    },
+    {
+      "name": "Flowers102",
+      "used": false,
+      "source": "torchvision",
+      "classes": 102
+    },
+    {
+      "name": "EuroSAT",
+      "used": false,
+      "source": "torchvision",
+      "classes": 10
+    }
+  ]
+}

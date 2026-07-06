@@ -1,0 +1,44 @@
+[
+    {
+        "question_id": "4cfb0000-e8f2-4420-aaa3-185c05c628c1",
+        "question_text": " A **global health research organization** wants to predict life expectancy across countries using various health, economic, and social indicators. With multiple correlated features, standard linear regression tends to overfit the data.\r\n\r\n**Regularization** techniques like Ridge (L2) and Lasso (L1) add penalty terms to the cost function, preventing overfitting by constraining model coefficients. Lasso can also perform feature selection by pushing some coefficients to zero.\r\n\r\n**Your Task:**\r\n\r\nBuild `Ridge` and `Lasso` regression models that predict **life expectancy** from WHO health indicators.\r\n\r\n1. **Preprocess:** Handle missing values in the training data, encode categorical features, and scale the features appropriately.\r\n\r\n2. **Train:** Train a Ridge and lasso regression model on the processed training data.\r\n\r\n3. **Predict:** Predict life expectancy on the test data using both models.\r\n\r\n---\r\n\r\n### Dataset\r\n\r\n\r\n<details>\r\n<summary style=\"display:inline-block;padding:8px 16px;background:#3b82f6;color:white;border-radius:6px;cursor:pointer;font-weight:bold;\">Learn about the Dataset Features</summary>\r\n\r\n| Column | Description |\r\n|--------|-------------|\r\n| `Country` | Country name |\r\n| `Year` | Year of observation |\r\n| `Status` | Developed or Developing country |\r\n| `Adult_Mortality` | Adult mortality rates (per 1000 population) |\r\n| `Infant_Deaths` | Number of infant deaths per 1000 population |\r\n| `Alcohol` | Alcohol consumption (litres of pure alcohol per capita) |\r\n| `Percentage_Expenditure` | Expenditure on health as a percentage of GDP per capita |\r\n| `Hepatitis_B` | Hepatitis B immunization coverage among 1-year-olds (%) |\r\n| `Measles` | Number of reported measles cases per 1000 population |\r\n| `BMI` | Average Body Mass Index of the population |\r\n| `Under_Five_Deaths` | Number of under-five deaths per 1000 population |\r\n| `Polio` | Polio immunization coverage among 1-year-olds (%) |\r\n| `Total_Expenditure` | Government expenditure on health (% of total expenditure) |\r\n| `Diphtheria` | Diphtheria immunization coverage among 1-year-olds (%) |\r\n| `HIV_AIDS` | Deaths per 1000 live births due to HIV/AIDS (0-4 years) |\r\n| `GDP` | Gross Domestic Product per capita (USD) |\r\n| `Population` | Population of the country |\r\n| `Thinness_1_19_Years` | Prevalence of thinness among 10-19 year olds (%) |\r\n| `Thinness_5_9_Years` | Prevalence of thinness among 5-9 year olds (%) |\r\n| `Income_Composition` | Human Development Index in terms of income composition (0 to 1) |\r\n| `Schooling` | Number of years of schooling |\r\n| `Life_Expectancy` | Life expectancy in years  |\r\n\r\n</details>\r\n\r\n> **Target:** `Life_Expectancy` column \r\n\r\n\r\n\r\n---\r\n\r\n### Expected Output\r\n\r\nStore your predictions in these exact variable names:\r\n\r\n| Variable | Description |\r\n|----------|-------------|\r\n| `ridge_predictions` | Ridge model predictions on test data |\r\n| `lasso_predictions` | Lasso model predictions on test data |\r\n\r\n---\r\n\r\n### Important Instructions\r\n\r\n- The data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\r\n\r\n- Store your predictions in the **exact variable names** listed above.",
+        "short_text": "Predict Life Expectancy using Regularization",
+        "toughness": "MEDIUM",
+        "content_type": "MARKDOWN",
+        "question_type": "IDE_BASED_CODING",
+        "question_key": "coding_practice_regularization",
+        "question_asked_by_companies_info": [],
+        "question_format": "CODING_PRACTICE",
+        "ide_session_id": "5dff556f-49da-49f9-9252-91f6add5c7b2",
+        "test_cases": [
+            {
+                "test_case_enum": "PY1",
+                "display_text": "The solution should run without any errors",
+                "weightage": 10
+            },
+            {
+                "test_case_enum": "PY2",
+                "display_text": "A Ridge regression model should be trained on the data",
+                "weightage": 20
+            },
+            {
+                "test_case_enum": "PY3",
+                "display_text": "A Lasso regression model should be trained on the data",
+                "weightage": 20
+            },
+            {
+                "test_case_enum": "PY4",
+                "display_text": "The Ridge model should achieve RMSE <= 5.0 on the test data",
+                "weightage": 25
+            },
+            {
+                "test_case_enum": "PY5",
+                "display_text": "The Lasso model should achieve RMSE <= 6.0 on the test data ",
+                "weightage": 25
+            }
+        ],
+        "multimedia": [],
+        "language": "ENGLISH",
+        "solutions_metadata": []
+    }
+]

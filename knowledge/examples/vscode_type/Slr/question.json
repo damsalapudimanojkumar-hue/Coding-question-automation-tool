@@ -1,0 +1,33 @@
+[
+    {
+        "question_id": "f8713e97-fd6c-414b-bc17-4c69e1610f52",
+        "question_text":"# Calorie Burn Prediction\r\n\r\nA **fitness tracking company** wants to estimate calories burned during exercise sessions based on workout duration. This helps users get real-time calorie estimates without wearing expensive heart-rate monitors.\r\n\r\n**Simple Linear Regression** fits a straight line through the data, making it ideal when there is a single feature with a linear relationship to the target.\r\n\r\n**Your Task:**\r\n\r\nBuild a `Simple Linear Regression` model that predicts **calories burned** based on **exercise duration**.\r\n\r\n1. **Load:** Load the training and test datasets.\r\n\r\n2. **Preprocess:** Handle missing values in the training data.\r\n\r\n3. **Train:** Train a Simple Linear Regression model using `Duration` as the feature and `Calories` as the target.\r\n\r\n4. **Predict:** Predict calories burned for the test data.\r\n\r\n---\r\n\r\n### Dataset\r\n\r\n| Column | Description |\r\n|--------|-------------|\r\n| `Duration` | Exercise duration in minutes |\r\n| `Calories` | Calories burned (only in training data) |\r\n\r\n> **Target:** `Calories` column (continuous value)\r\n\r\n---\r\n\r\n### Expected Output\r\n\r\n\r\nYour code should contain a trained `LinearRegression` model and predictions on the test data.\r\n\r\n\r\n---\r\n\r\n### Important Instructions\r\n\r\n- The data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\r\n\r\n\r\n" ,
+        "toughness": "MEDIUM",
+        "content_type": "MARKDOWN",
+        "question_type": "IDE_BASED_CODING",
+        "question_key": "coding_practice_exercise_calorie_linear_regression",
+        "question_asked_by_companies_info": [],
+        "question_format": "CODING_PRACTICE",
+        "ide_session_id": "d4deb74e-009a-4a97-8aae-e83314f062de",
+        "test_cases": [
+            {
+                "test_case_enum": "PY1",
+                "display_text": "The solution should run without any errors.",
+                "weightage": 20
+            },
+            {
+                "test_case_enum": "PY2",
+                "display_text": "A trained LinearRegression model should be present in the solution.",
+                "weightage": 30
+            },
+            {
+                "test_case_enum": "PY3",
+                "display_text": "The model should achieve RMSE <= 22 on the test data.",
+                "weightage": 50
+            }
+        ],
+        "multimedia": [],
+        "language": "ENGLISH",
+        "solutions_metadata": []
+    }
+]
