@@ -10,7 +10,7 @@ import textwrap
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude, call_claude_with_tools
-from naming import asset_paths, asset_relnames, filename_instructions, make_code
+from naming import asset_paths, filename_instructions, make_code
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
     DATASET_DRAFT_SYSTEM_PROMPT,
@@ -174,7 +174,7 @@ def _generate_design(state, selected, workspace, code):
             state.get("research_output", ""), state.get("wiki_instructions_context", ""),
             _question_reference_formats(), workspace, filename_instructions(code),
         ),
-        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=12,
+        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=24,
     )
     plan, statement = _parse_design(response)
     if not plan or not statement:
@@ -258,8 +258,20 @@ def problem_dataset_agent(state: dict) -> dict:
         print("\nPhase 2: obtaining and inspecting the selected dataset...")
         plan, statement = _generate_design(state, selected, workspace, code)
         if not plan or not statement:
-            print("The model did not return a complete dataset plan and draft. Returning to options.")
-            continue
+            print("\n[!] Dataset preparation did not complete for this option.")
+            print("    (The dataset was likely unreachable, or the model ran out of tool")
+            print("     turns before it saved the CSVs and returned the draft.)")
+            recovery = input("Choose: [R] retry same option  [S] synthetic dataset instead  "
+                             "[B] back to options: ").strip().upper()
+            if recovery == "R":
+                plan, statement = _generate_design(state, selected, workspace, code)
+            elif recovery == "S":
+                plan, statement, _ = _change_dataset(
+                    state, selected, "", "", workspace, code, synthetic=True
+                )
+            if not plan or not statement:
+                print("Still no complete draft. Returning to options.\n")
+                continue
 
         modification_notes = None
         while True:

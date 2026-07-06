@@ -14,6 +14,7 @@ only the tool definition shape changed, not what actually runs.
 """
 
 import subprocess
+import sys
 import os
 import json
 import textwrap
@@ -71,7 +72,7 @@ def execute_run_python(tool_input: dict) -> str:
 
     try:
         result = subprocess.run(
-            ["python3", script_path],
+            [sys.executable, script_path],
             cwd=workspace,
             capture_output=True,
             text=True,
@@ -126,7 +127,7 @@ def execute_run_pytest(tool_input: dict) -> str:
 
     try:
         result = subprocess.run(
-            ["python3", "-m", "pytest", "-vv", "--tb=short"],
+            [sys.executable, "-m", "pytest", "-vv", "--tb=short"],
             cwd=working_dir,
             capture_output=True,
             text=True,
