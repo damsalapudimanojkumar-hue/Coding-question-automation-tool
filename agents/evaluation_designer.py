@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude_with_tools
 from naming import filename_instructions, asset_relnames, make_code
+from ui.session import TerminalIO
 from tools.local_tools import ALL_TOOLS, tool_executor
 from prompts.evaluation_prompt import (
     EVALUATION_PHASE1_PROMPT,
@@ -64,84 +65,62 @@ def _extract_solution_code(response_text: str) -> str:
     return ""
 
 
-def _hitl_review(proposal: str) -> tuple:
+def _hitl_review(proposal: str, io) -> tuple:
     """
     Show the proposed test cases and handle review with three modes:
     - Approve: use as-is
-    - Discuss: interactive loop — user gives feedback (vague or specific), 
-               agent proposes revised test cases, repeat until user accepts
+    - Discuss: iterative feedback loop that proposes revised test cases
     - Regenerate: redo Phase 1 from scratch with feedback
     """
-    print("\n" + "="*60)
-    print("⏸️   CHECKPOINT — REVIEW PROPOSED TEST CASES")
-    print("="*60)
-    print(proposal)
-    print("\n" + "-"*60)
-    print("Options:")
-    print("  [A] Approve — generate files with these test cases")
-    print("  [D] Discuss — give feedback, I'll propose revisions (iterative)")
-    print("  [R] Regenerate — redo Phase 1 from scratch with feedback")
-    print("-"*60)
+    io.emit("test_proposal", text=proposal)
 
     while True:
-        choice = input("\nYour choice [A/D/R]: ").strip().upper()
+        choice = io.ask({"kind": "eval_action"})
 
         if choice == "A":
-            print("\n✅ Approved. Proceeding to Phase 2 — generating files...\n")
+            io.emit("log", text="Approved. Generating files...")
             return "approve", proposal
 
         elif choice == "D":
-            return _discuss_and_refine(proposal)
+            return _discuss_and_refine(proposal, io)
 
         elif choice == "R":
-            feedback = input("\nWhat should change? (brief description): ").strip()
-            print("\n🔄 Regenerating Phase 1 with your feedback...\n")
+            feedback = io.ask({"kind": "text",
+                               "prompt": "What should change? (brief description):"})
+            io.emit("log", text="Regenerating test-case proposal with your feedback...")
             return "regenerate", feedback
 
         else:
-            print("Please type A, D, or R.")
+            io.emit("notice", text="Please choose Approve, Discuss, or Regenerate.")
 
 
-def _discuss_and_refine(current_proposal: str) -> tuple:
+def _discuss_and_refine(current_proposal: str, io) -> tuple:
     """
     Interactive refinement loop.
-    User gives feedback → agent proposes revised test cases → repeat until accepted.
+    User gives feedback -> agent proposes revised test cases -> repeat until accepted.
     """
-    print("\n" + "="*60)
-    print("💬  DISCUSS & REFINE MODE")
-    print("="*60)
-    print("Give feedback in any form (vague or specific).")
-    print("I'll propose a revised test case list each round.")
-    print("Type 'accept' to finalize, 'back' to return to main menu.")
-    print("="*60 + "\n")
-
     proposal = current_proposal
 
     while True:
-        feedback = input("\nYour feedback (or 'accept' / 'back'): ").strip()
+        feedback = io.ask({"kind": "text",
+                           "prompt": "Feedback to refine the test cases "
+                                     "(or type 'accept' to finalize, 'back' for the menu):"})
 
         if feedback.lower() == "accept":
-            print("\n✅ Accepted. Proceeding to Phase 2...\n")
+            io.emit("log", text="Accepted. Generating files...")
             return "approve", proposal
 
         if feedback.lower() == "back":
-            print("\n↩️  Returning to main menu...\n")
-            return _hitl_review(current_proposal)  # back to A/D/R menu
+            return _hitl_review(current_proposal, io)  # back to A/D/R menu
 
-        # Ask the model to revise the proposal based on feedback
-        print("\n🤔  Revising test cases based on your feedback...")
+        io.emit("log", text="Revising test cases based on your feedback...")
         revised = _call_model_for_revision(proposal, feedback)
 
         if not revised:
-            print("⚠️  Could not parse revised proposal. Try again or type 'back'.")
+            io.emit("notice", text="Could not parse a revised proposal. Try again or type 'back'.")
             continue
 
-        print("\n" + "="*60)
-        print("📝  REVISED TEST CASE PROPOSAL")
-        print("="*60)
-        print(revised)
-        print("="*60 + "\n")
-
+        io.emit("test_proposal", text=revised)
         proposal = revised  # update for next iteration
 
 
@@ -227,8 +206,9 @@ def _finalize_question_json(workspace: str) -> str:
     return f"{question_id}.json"
 
 
-def evaluation_designer_agent(state: dict) -> dict:
+def evaluation_designer_agent(state: dict, io=None) -> dict:
     """LangGraph node function for Agent 3."""
+    io = io or TerminalIO()
 
     topic = state["topic"]
     problem_statement = state.get("problem_statement", "")
@@ -244,11 +224,8 @@ def evaluation_designer_agent(state: dict) -> dict:
 
     os.makedirs(workspace, exist_ok=True)
 
-    print(f"\n{'='*60}")
-    print(f"🧪  AGENT 3: EVALUATION DESIGNER")
-    print(f"{'='*60}")
-    print(f"Topic: {topic}")
-    print(f"Workspace: {workspace}")
+    io.emit("stage", name="evaluation")
+    io.emit("log", text=f"AGENT 3: EVALUATION DESIGNER — {topic}")
 
     # ── PHASE 1 LOOP (re-runs if human chooses Regenerate) ─────────────
     extra_feedback = ""
@@ -257,7 +234,8 @@ def evaluation_designer_agent(state: dict) -> dict:
     reference_solution_code = ""
 
     while True:
-        print("\n📐 Phase 1: Building reference solution + proposing test cases...")
+        io.emit("log", text="Phase 1: building reference solution + proposing test cases "
+                            "(this runs code, can take a minute)...")
 
         phase1_prompt = build_phase1_user_prompt(
             topic=topic,
@@ -287,7 +265,7 @@ def evaluation_designer_agent(state: dict) -> dict:
         reference_solution_code = _extract_solution_code(phase1_response)
 
         # ── HITL pause ──────────────────────────────────────────────────
-        action, feedback_or_cases = _hitl_review(proposal)
+        action, feedback_or_cases = _hitl_review(proposal, io)
 
         if action == "approve":
             approved_test_cases = feedback_or_cases
@@ -298,7 +276,7 @@ def evaluation_designer_agent(state: dict) -> dict:
             continue
 
     # ── PHASE 2: Generate all test files ───────────────────────────────
-    print("\n📁 Phase 2: Generating test files...")
+    io.emit("log", text="Phase 2: generating test files...")
 
     phase2_prompt = build_phase2_user_prompt(
         topic=topic,
@@ -313,19 +291,13 @@ def evaluation_designer_agent(state: dict) -> dict:
         filenames=filenames,
     )
 
-    phase2_response = call_claude_with_tools(
+    call_claude_with_tools(
         system=EVALUATION_PHASE2_PROMPT,
         user=phase2_prompt,
         tools=ALL_TOOLS,
         tool_executor=tool_executor,
         max_turns=20,
     )
-
-    print("\n" + "="*60)
-    print("AGENT 3 PHASE 2 RESPONSE:")
-    print("="*60)
-    print(phase2_response)
-    print("="*60)
 
     # Generate real UUIDs and rename question.json -> <question_id>.json
     question_file = _finalize_question_json(workspace)
@@ -345,18 +317,20 @@ def evaluation_designer_agent(state: dict) -> dict:
         "requirements.txt",
     ]
 
-    print(f"\n📁 Files in {workspace}:")
+    file_report = []
     for fname in expected_files:
         fpath = os.path.join(workspace, fname)
-        if os.path.isfile(fpath):
-            size_kb = os.path.getsize(fpath) / 1024
-            print(f"   ✅ {fname} ({size_kb:.1f} KB)")
-        else:
-            print(f"   ❌ {fname} (missing)")
+        exists = os.path.isfile(fpath)
+        size_kb = round(os.path.getsize(fpath) / 1024, 1) if exists else 0.0
+        file_report.append({"name": fname, "exists": exists, "size_kb": size_kb})
+        print(f"   {'OK' if exists else 'MISSING'} {fname} ({size_kb} KB)")
+
+    io.emit("files", files=file_report, workspace=workspace, question_file=question_file)
 
     return {
         "approved_test_cases": approved_test_cases,
         "generated_files_path": workspace,
         "question_file": question_file,
+        "generated_files": file_report,
         "evaluation_complete": True,
     }

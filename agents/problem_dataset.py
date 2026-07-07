@@ -5,12 +5,12 @@ import csv
 import os
 import re
 import sys
-import textwrap
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude, call_claude_with_tools
 from naming import asset_paths, filename_instructions, make_code
+from ui.session import TerminalIO
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
     DATASET_DRAFT_SYSTEM_PROMPT,
@@ -110,26 +110,6 @@ The problem statement must end with Important Instructions and contain no em das
     return _parse_design(response)
 
 
-def _clip(value, width):
-    value = " ".join(str(value or "").split())
-    return textwrap.shorten(value, width=width, placeholder="...").ljust(width)
-
-
-def _print_options(options):
-    widths = (3, 34, 25, 34, 9, 10)
-    headers = ("#", "Problem Title", "Dataset", "Learning Objective", "Rows", "Balance")
-    rule = "+" + "+".join("-" * (w + 2) for w in widths) + "+"
-    print("\n" + rule)
-    print("| " + " | ".join(_clip(v, w) for v, w in zip(headers, widths)) + " |")
-    print(rule)
-    for index, option in enumerate(options, 1):
-        row = (index, option.get("title"), option.get("dataset"),
-               option.get("learning_objective"), option.get("rows"), option.get("balance"))
-        print("| " + " | ".join(_clip(v, w) for v, w in zip(row, widths)) + " |")
-    print(rule)
-    print("\n[1-{}] Select   [M] More options   [Q] Change topic".format(len(options)))
-
-
 def _generate_options(state, existing):
     response = call_claude(
         system=OPTIONS_SYSTEM_PROMPT,
@@ -143,26 +123,26 @@ def _generate_options(state, existing):
     return _parse_options(response)
 
 
-def _select_option(state, options):
+def _select_option(state, options, io):
     while True:
         if not options:
-            print("No valid options were returned. Generating another set...")
+            io.emit("notice", text="No valid options were returned. Generating another set...")
             options.extend(_generate_options(state, options))
             continue
-        _print_options(options)
-        choice = input("\nYour choice: ").strip().upper()
+        io.emit("options", options=options)
+        choice = io.ask({"kind": "select_option", "n": len(options)})
         if choice == "M":
             new_options = _generate_options(state, options)
             if new_options:
                 options.extend(new_options)
             else:
-                print("Could not parse more options. Please try again.")
+                io.emit("notice", text="Could not parse more options. Please try again.")
         elif choice == "Q":
             return None
         elif choice.isdigit() and 1 <= int(choice) <= len(options):
             return options[int(choice) - 1]
         else:
-            print("Choose an option number, M, or Q.")
+            io.emit("notice", text="Choose an option number, M, or Q.")
 
 
 def _generate_design(state, selected, workspace, code):
@@ -184,22 +164,8 @@ def _generate_design(state, selected, workspace, code):
     return plan, statement
 
 
-def _show_draft(plan, statement):
-    print("\n" + "=" * 60)
-    print("DATASET LOADED AND PREPARED")
-    print("=" * 60)
-    print(plan or "[Dataset plan was not returned]")
-    print("\n" + "-" * 60)
-    print("PROBLEM STATEMENT DRAFT:")
-    print("-" * 60)
-    print(statement or "[Problem statement was not returned]")
-    print("-" * 60)
-    print("[A] Approve  [EP] Edit problem  [ED] Edit dataset")
-    print("[SD] Synthetic dataset  [B] Back to options")
-
-
-def _revise_statement(state, statement):
-    instructions = input("Describe the problem-statement changes: ").strip()
+def _revise_statement(state, statement, io):
+    instructions = io.ask({"kind": "text", "prompt": "Describe the problem-statement changes:"})
     response = call_claude(
         system=REVISION_SYSTEM_PROMPT,
         user=build_revision_user_prompt(
@@ -210,12 +176,13 @@ def _revise_statement(state, statement):
     return _between(response, "---PROBLEM_STATEMENT---", "---END_PROBLEM_STATEMENT---")
 
 
-def _change_dataset(state, selected, plan, statement, workspace, code, synthetic=False):
+def _change_dataset(state, selected, plan, statement, workspace, code, io, synthetic=False):
     if synthetic:
-        instructions = input("Synthetic dataset requirements (Enter for model defaults): ").strip()
+        instructions = io.ask({"kind": "text",
+                               "prompt": "Synthetic dataset requirements (blank for model defaults):"})
         system = SYNTHETIC_SYSTEM_PROMPT
     else:
-        instructions = input("Describe how to modify the existing dataset: ").strip()
+        instructions = io.ask({"kind": "text", "prompt": "Describe how to modify the existing dataset:"})
         system = DATASET_EDIT_SYSTEM_PROMPT
     response = call_claude_with_tools(
         system=system,
@@ -229,23 +196,23 @@ def _change_dataset(state, selected, plan, statement, workspace, code, synthetic
     return new_plan or plan, new_statement or statement, instructions
 
 
-def problem_dataset_agent(state: dict) -> dict:
+def problem_dataset_agent(state: dict, io=None) -> dict:
+    io = io or TerminalIO()
     workspace = state.get("output_dir")
     if not workspace:
         raise ValueError("state['output_dir'] must be initialized before Agent 2 runs")
     code = state.get("assignment_code") or make_code(state["topic"])
     os.makedirs(os.path.join(workspace, "tests"), exist_ok=True)
-    print("\n" + "=" * 60)
-    print("AGENT 2: PROBLEM + DATASET DESIGNER")
-    print("=" * 60)
-    print("Phase 1 generates options only. No dataset is downloaded before selection.")
+    io.emit("stage", name="problem_dataset")
+    io.emit("log", text="AGENT 2: PROBLEM + DATASET DESIGNER\n"
+                        "Phase 1 generates options only. No dataset is downloaded before selection.")
 
     options = list(state.get("options_table") or state.get("problem_dataset_options") or [])
     if not options:
         options.extend(_generate_options(state, options))
 
     while True:
-        selected = _select_option(state, options)
+        selected = _select_option(state, options, io)
         if selected is None:
             return {
                 "options_table": options,
@@ -255,28 +222,27 @@ def problem_dataset_agent(state: dict) -> dict:
                 "current_stage": "problem_options_rejected",
             }
 
-        print("\nPhase 2: obtaining and inspecting the selected dataset...")
+        io.emit("log", text="Phase 2: obtaining and inspecting the selected dataset...")
         plan, statement = _generate_design(state, selected, workspace, code)
         if not plan or not statement:
-            print("\n[!] Dataset preparation did not complete for this option.")
-            print("    (The dataset was likely unreachable, or the model ran out of tool")
-            print("     turns before it saved the CSVs and returned the draft.)")
-            recovery = input("Choose: [R] retry same option  [S] synthetic dataset instead  "
-                             "[B] back to options: ").strip().upper()
+            io.emit("notice", text="[!] Dataset preparation did not complete for this option "
+                                   "(source unreachable, or the model ran out of tool turns "
+                                   "before saving the CSVs and returning the draft).")
+            recovery = io.ask({"kind": "recovery"})
             if recovery == "R":
                 plan, statement = _generate_design(state, selected, workspace, code)
             elif recovery == "S":
                 plan, statement, _ = _change_dataset(
-                    state, selected, "", "", workspace, code, synthetic=True
+                    state, selected, "", "", workspace, code, io, synthetic=True
                 )
             if not plan or not statement:
-                print("Still no complete draft. Returning to options.\n")
+                io.emit("notice", text="Still no complete draft. Returning to options.")
                 continue
 
         modification_notes = None
         while True:
-            _show_draft(plan, statement)
-            action = input("\nYour choice [A/EP/ED/SD/B]: ").strip().upper()
+            io.emit("draft", plan=plan, statement=statement)
+            action = io.ask({"kind": "draft_action"})
             if action == "A":
                 return {
                     "options_table": options,
@@ -292,18 +258,18 @@ def problem_dataset_agent(state: dict) -> dict:
                     "current_stage": "problem_dataset_done",
                 }
             if action == "EP":
-                revised = _revise_statement(state, statement)
+                revised = _revise_statement(state, statement, io)
                 if revised:
                     statement = revised
                 else:
-                    print("Revision could not be parsed; keeping the current draft.")
+                    io.emit("notice", text="Revision could not be parsed; keeping the current draft.")
             elif action in {"ED", "SD"}:
                 plan, statement, note = _change_dataset(
-                    state, selected, plan, statement, workspace, code, synthetic=(action == "SD")
+                    state, selected, plan, statement, workspace, code, io, synthetic=(action == "SD")
                 )
                 prefix = "Synthetic replacement" if action == "SD" else "Dataset edit"
                 modification_notes = f"{prefix}: {note or 'model defaults'}"
             elif action == "B":
                 break
             else:
-                print("Choose A, EP, ED, SD, or B.")
+                io.emit("notice", text="Choose A, EP, ED, SD, or B.")
