@@ -17,7 +17,16 @@ import subprocess
 import sys
 import os
 import json
+import tempfile
 import textwrap
+
+# Cross-platform scratch dir for run_python. NOT the assignment output folder:
+# agents save datasets/ground-truth using ABSOLUTE workspace paths (see the
+# filename instructions in prompts); this is only for the throwaway script and
+# any relative scratch the model writes. Using the OS temp dir avoids the old
+# hardcoded "/home/claude/workspace" that failed with PermissionError on Windows
+# (C:\home) and on locked-down deploy hosts.
+_SCRATCH_DIR = os.path.join(tempfile.gettempdir(), "assignment_pipeline_ws")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -38,7 +47,8 @@ RUN_PYTHON_TOOL = {
             "accuracy) instead of guessing them, verify a lazy/wrong solution "
             "actually fails. Available libraries: pandas, numpy, sklearn, torch, "
             "matplotlib (no plt.show), requests. Returns stdout + stderr. "
-            "Code runs in /home/claude/workspace — write files there if needed."
+            "Save datasets/outputs using the ABSOLUTE workspace path given in your "
+            "instructions (do not rely on the current working directory)."
         ),
         "parameters": {
             "type": "object",
@@ -63,17 +73,15 @@ def execute_run_python(tool_input: dict) -> str:
     code = tool_input["code"]
     timeout = tool_input.get("timeout_seconds", 60)
 
-    workspace = "/home/claude/workspace"
-    os.makedirs(workspace, exist_ok=True)
-
-    script_path = os.path.join(workspace, "_agent_script.py")
-    with open(script_path, "w", encoding="utf-8") as f:
-        f.write(code)
-
     try:
+        os.makedirs(_SCRATCH_DIR, exist_ok=True)
+        script_path = os.path.join(_SCRATCH_DIR, "_agent_script.py")
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(code)
+
         result = subprocess.run(
             [sys.executable, script_path],
-            cwd=workspace,
+            cwd=_SCRATCH_DIR,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -85,7 +93,7 @@ def execute_run_python(tool_input: dict) -> str:
     except subprocess.TimeoutExpired:
         return f"[TIMEOUT after {timeout}s] Code took too long to run."
     except Exception as e:
-        return f"[EXECUTION ERROR] {str(e)}"
+        return f"[EXECUTION ERROR] {type(e).__name__}: {e}"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -177,12 +185,16 @@ def execute_write_file(tool_input: dict) -> str:
     path = tool_input["path"]
     content = tool_input["content"]
 
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    size_kb = os.path.getsize(path) / 1024
-    return f"[OK] Wrote {len(content)} chars ({size_kb:.1f} KB) to {path}"
+    try:
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        size_kb = os.path.getsize(path) / 1024
+        return f"[OK] Wrote {len(content)} chars ({size_kb:.1f} KB) to {path}"
+    except Exception as e:
+        return f"[WRITE ERROR] {type(e).__name__}: {e} (path={path})"
 
 
 # ══════════════════════════════════════════════════════════════════════════
