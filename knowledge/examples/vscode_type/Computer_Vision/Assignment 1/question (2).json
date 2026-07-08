@@ -1,0 +1,72 @@
+{
+    "question_id": "78d3ebc7-b697-4aa6-b6b6-20be0f7a7c01",
+    "question_text": "# Smart Waste Sorting with CNN Architectures\r\n\r\nA recycling company wants to automate waste sorting using AI. The system looks at an image of a waste item and classifies it into the correct category so it can be sent to the right recycling bin.\r\n\r\nYou are given a dataset of real-world waste photographs (resized to 32x32 RGB) across 10 categories. You will build a few CNN models, see how CNN architectures evolved over time, and compare them.\r\n\r\n## Dataset\r\n\r\n| Item | Details |\r\n|------|---------|\r\n| File | waste_images.npz |\r\n| Image size | 32 x 32 x 3 (RGB) |\r\n| Training images | 3200 |\r\n| Validation images | 800 |\r\n| Classes (10) | cardboard, glass, metal, paper, plastic, trash, organic, battery, clothes, electronics |\r\n\r\nLabels are integers 0 to 9 in the class order listed above.\r\n\r\n## Task 1: Data Loading\r\n\r\nBuild a custom PyTorch Dataset and create `train_loader` and `val_loader`. Scale pixel values to [0, 1] and use channel first format (N, 3, 32, 32).\r\n\r\n## Task 2: Implement LeNet-5\r\n\r\nBuild the LeNet-5 architecture as `lenet_model`. Train it for 10 epochs with CrossEntropyLoss and the Adam optimizer, printing training loss, training accuracy, and validation accuracy each epoch.\r\n\r\n## Task 3: Improve the CNN using AlexNet Ideas\r\n\r\nCreate `improved_model`, a version of LeNet-5 that uses `nn.ReLU` activations and at least one `nn.Dropout` layer. Train it for 10 epochs and compare its validation accuracy with LeNet-5.\r\n\r\n## Task 4: Build a GoogLeNet-inspired CNN\r\n\r\nImplement a custom Inception Module with four parallel branches, then concatenate their outputs along the channel dimension:\r\n\r\n* 1x1 Convolution\r\n* 1x1 followed by 3x3 Convolution\r\n* 1x1 followed by 5x5 Convolution\r\n* 3x3 MaxPooling followed by 1x1 Convolution\r\n\r\nUse it to build `inception_model` and train it for 10 epochs with CrossEntropyLoss and the Adam optimizer, printing the same metrics each epoch.\r\n\r\n## Task 5: Model Evaluation\r\n\r\nEvaluate `lenet_model` and `inception_model` on the validation set. Show the validation accuracy, a confusion matrix for each model, and the predicted vs actual labels for any 5 validation images.\r\n\r\n## Task 6: Compare the Models\r\n\r\nStore the three validation accuracies in a dictionary named `model_results` and print them so the models can be compared.\r\n\r\n## Expected Variables\r\n\r\n| Variable | Description |\r\n|----------|-------------|\r\n| train_loader, val_loader | DataLoaders for the 3200 train and 800 validation images |\r\n| lenet_model | Trained LeNet-5 |\r\n| improved_model | LeNet-5 with ReLU and Dropout |\r\n| inception_model | GoogLeNet-inspired CNN |\r\n| model_results | Dict mapping the 3 model names to validation accuracy |\r\n\r\nUse these exact variable names. All models take input of shape (N, 3, 32, 32) and output 10 class scores. Do not use plt.show() in your submission.\r\n",
+    "short_text": "Smart Waste Sorting with CNN Architectures",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_1",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "REPLACE-WITH-SESSION-UUID",
+    "test_cases": [
+        {
+            "test_case_enum": "PY1",
+            "display_text": "The solution should run without any errors",
+            "weightage": 5
+        },
+        {
+            "test_case_enum": "PY2",
+            "display_text": "Training and validation DataLoaders should be created with 3200 and 800 samples respectively",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY3",
+            "display_text": "lenet_model should follow the LeNet-5 design (at least 2 convolutional and 2 fully connected layers) and output scores for 10 classes",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY4",
+            "display_text": "lenet_model accuracy on hidden test images should be at least 0.40 (train for the full 10 epochs)",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY5",
+            "display_text": "improved_model should use nn.ReLU activations and include at least one nn.Dropout layer",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY6",
+            "display_text": "improved_model accuracy on hidden test images should be at least 0.40 (train for the full 10 epochs)",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY7",
+            "display_text": "inception_model should contain an Inception module with 1x1, 3x3, and 5x5 convolution branches and a max pooling branch, and output scores for 10 classes",
+            "weightage": 15
+        },
+        {
+            "test_case_enum": "PY8",
+            "display_text": "inception_model accuracy on hidden test images should be at least 0.40 (train for the full 10 epochs)",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY9",
+            "display_text": "A 10x10 confusion matrix computed on the full validation set (800 samples) should be present",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY10",
+            "display_text": "model_results dictionary should map the 3 model names to their validation accuracies (floats between 0 and 1)",
+            "weightage": 5
+        },
+        {
+            "test_case_enum": "PY11",
+            "display_text": "The solution should complete within 600 seconds",
+            "weightage": 5
+        }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+}

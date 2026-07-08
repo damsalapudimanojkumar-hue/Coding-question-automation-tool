@@ -1,0 +1,47 @@
+{
+    "question_id": "PLACEHOLDER-QUESTION-UUID",
+    "question_text": "# TrafficVision: Inception-based Traffic Sign Classifier\n\nBuild an Inception-inspired CNN to classify 32x32 RGB traffic sign images into 10 categories.\n\n## What You Need to Do\n\n1. Load the dataset from `traffic_signs.npz` and create PyTorch `Dataset` and `DataLoader` objects\n2. Build a custom `InceptionModule` (`nn.Module` subclass) with four parallel branches:\n   - Branch 1: 1x1 convolution\n   - Branch 2: 1x1 conv (bottleneck) followed by 3x3 conv\n   - Branch 3: 1x1 conv (bottleneck) followed by 5x5 conv\n   - Branch 4: 3x3 MaxPool followed by 1x1 conv\n   - Concatenate all branch outputs along the channel dimension\n3. Build a classifier using at least one InceptionModule, ending with FC layers for 10-class output\n4. Train using CrossEntropyLoss and achieve >= 70% accuracy on unseen test data\n\n## Expected Output\n\n| Variable | Type | Description |\n|----------|------|-------------|\n| `model` | `nn.Module` | Trained classifier with at least one Inception module |",
+    "short_text": "TrafficVision: Inception-based Traffic Sign Classifier",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_inception_traffic",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "PLACEHOLDER-SESSION-UUID",
+    "test_cases": [
+        {
+            "test_case_enum": "PY1",
+            "display_text": "The solution should run without any errors",
+            "weightage": 5
+        },
+        {
+            "test_case_enum": "PY2",
+            "display_text": "A trained PyTorch model (nn.Module) should exist in your code",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY3",
+            "display_text": "The model should use at least 3 different convolution kernel sizes (e.g., 1x1, 3x3, 5x5) to capture multi-scale features",
+            "weightage": 25
+        },
+        {
+            "test_case_enum": "PY4",
+            "display_text": "The model should have at least 3 Conv2d layers with kernel_size=1 for dimensionality reduction (bottleneck convolutions)",
+            "weightage": 20
+        },
+        {
+            "test_case_enum": "PY5",
+            "display_text": "The model should produce an output with 10 units when given a (1, 3, 32, 32) input tensor",
+            "weightage": 15
+        },
+        {
+            "test_case_enum": "PY6",
+            "display_text": "The model should achieve at least 70% classification accuracy on the hidden test set",
+            "weightage": 25
+        }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+}
