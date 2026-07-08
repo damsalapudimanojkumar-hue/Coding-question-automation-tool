@@ -70,6 +70,9 @@ lines with no blank line between them.
 
 - For 8 or fewer columns, show the Markdown table directly.
 - For more than 8 columns, wrap the table in a `<details>` block using the blue-button summary style from `question_text_patterns.md`.
+- For image / computer-vision datasets, do not use a column table at all: list the
+  class names and the image format (size, channels) and note the folder-per-class
+  training layout plus the flat test folder. See `question_text_patterns.md`.
 
 ## Test Case Rules
 

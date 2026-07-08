@@ -52,8 +52,44 @@ def ground_truth():
     # Local testing version: load from tests/ground_truth.csv
 ```
 
+## Image / Computer-Vision variant
+
+For CV assignments the dataset is real image files, not CSVs. The student loads
+`dataset_train_<CODE>/` with `torchvision.datasets.ImageFolder`; the grader scores
+the flat, unlabeled `dataset_test_<CODE>/` images against
+`tests/ground_truth_<CODE>.csv` (`filename,label`).
+
+```python
+import os
+import pandas as pd
+import torch
+from PIL import Image
+from torchvision import transforms
+
+@pytest.fixture(scope="session")
+def ground_truth():
+    # Platform version: load the manifest from S3; local version: from tests/
+    gt = pd.read_csv("tests/ground_truth_<CODE>.csv")   # columns: filename,label
+    tfm = transforms.Compose([
+        transforms.Resize((32, 32)),   # SAME preprocessing the problem specifies
+        transforms.ToTensor(),
+    ])
+    test_dir = "dataset_test_<CODE>"
+    images, labels = [], []
+    for _, row in gt.iterrows():
+        img = Image.open(os.path.join(test_dir, row["filename"])).convert("RGB")
+        images.append(tfm(img))
+        labels.append(row["label"])
+    return torch.stack(images), labels   # align predictions to labels by row order
+```
+
+Detect the student model by TYPE + BEHAVIOR (isinstance `nn.Module` plus a
+forward-pass shape probe), never by variable name. Compute accuracy by running the
+detected model over these test images and comparing argmax predictions to the labels.
+
 ## Detection Patterns by Object Type
 
 Detection patterns (classifier, scaler, probability array, PyTorch model,
-clustering, name-first fallback, etc.) are maintained in one place:
+CV model behavioral probe / architecture inspection, clustering, name-first
+fallback, etc.) are maintained in one place:
 `knowledge/skills/detection_patterns.md`. Use those; do not duplicate them here.

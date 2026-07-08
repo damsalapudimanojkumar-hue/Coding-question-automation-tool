@@ -28,6 +28,18 @@ Avoid starting with "In this assignment", referring to what was taught, prescrib
 - 8 or fewer columns: show a plain Markdown table.
 - More than 8 columns: use this collapsible block:
 
+### Image / Computer-Vision datasets
+
+For CV assignments the dataset is real image files, not a table of columns. In the
+Dataset section, instead of a column table:
+
+- List the exact CLASS names (these are the training subfolder names).
+- State the image format: size and channels (e.g. "64x64 RGB").
+- Say the training images are provided as one folder per class (ImageFolder
+  layout) and the test images as a flat folder to predict.
+- Do NOT list pixel columns and do NOT give per-class image counts.
+- Use a `<details>` block for the class list when there are many classes.
+
 ```html
 <details>
 <summary style="display:inline-block;padding:8px 16px;background:#3b82f6;color:white;border-radius:6px;cursor:pointer;font-weight:bold;">Learn about the Dataset Features</summary>
