@@ -37,6 +37,19 @@
 - Row count: 300-400+ samples where feasible
 - Must differ meaningfully from session material (not copy-paste-able)
 
+## Image / Computer-Vision datasets
+- Ship REAL image files, never a CSV of pixel values.
+- Training data: `dataset_train_<CODE>/<class_name>/<images>` — one subfolder per
+  class, folder name = the exact class label (torchvision `ImageFolder` layout).
+- Test data: `dataset_test_<CODE>/<images>` — a flat folder of UNLABELED images the
+  student predicts.
+- Ground truth: `tests/ground_truth_<CODE>.csv` with two columns `filename,label`
+  (the ONLY CSV). The grader matches predictions to labels by filename.
+- Keep it small and fast: a few hundred images total, downscaled (e.g. 32x32 to
+  128x128), classes roughly balanced, under ~15 MB zipped.
+- Runs on the DSML_DL session (torch/torchvision pre-installed). Students load the
+  training folder with `datasets.ImageFolder`; no S3, no downloads in the notebook.
+
 ## opencv
 Use `opencv-python-headless`, not `opencv-python`, on headless eval servers.
 
