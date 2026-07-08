@@ -1,0 +1,72 @@
+{
+    "question_id": "51ba9b78-2c17-497a-9f53-a22df2c164e6",
+    "question_text": "# TerraScan: Aerial Image Filter Engine\n\nYou are working on **TerraScan**, an Earth-observation pipeline that processes high-resolution aerial imagery for land-use analysis. Before tiles can be fed into downstream classifiers, the engineering team needs a filter engine to clean up image noise, smooth out artifacts, and run edge detection so terrain features (roads, field boundaries, vehicles, building footprints) stand out clearly.\n\n## Your task\n\nBuild the core filter engine: the kernels and the convolution machinery that every smoothing and edge-detection routine in TerraScan is built on. Implement the six functions listed in the table below, using **NumPy only** for the filtering math. The starter notebook already contains the six function stubs with the correct names and signatures; fill in the bodies.\n\nThe `images/` folder contains 100 real 256x256 color aerial tiles from nine land-use categories (agricultural fields, airplanes, baseball diamonds, dense residential, freeways, harbors, intersections, overpasses, parking lots) sampled from the UC Merced Land Use dataset. The provided `load_tile` helper converts each tile to grayscale, so your filter functions work on 2D arrays.\n\n## Required functions\n\n| # | Function | Returns | Specification |\n|---|---|---|---|\n| 1 | `box_kernel(size)` | ndarray (size, size) | Averaging blur. All entries equal, sums to 1 |\n| 2 | `gaussian_kernel(size, sigma)` | ndarray (size, size) | Normalized Gaussian (sums to 1), symmetric, peak at center |\n| 3 | `sharpen_kernel()` | ndarray (3, 3) | `[[0,-1,0],[-1,5,-1],[0,-1,0]]` |\n| 4 | `sobel_kernels()` | tuple of two (3, 3) ndarrays | Returns `(sobel_x, sobel_y)`, each sums to 0 |\n| 5 | `apply_filter(image, kernel)` | ndarray same shape as image | **Cross-correlation** with **zero padding**. Output HxW equals input HxW |\n| 6 | `convolve(image, kernel)` | ndarray same shape as image | **True convolution** = cross-correlation with the kernel flipped both axes |\n\n## Rules\n\n- Filter outputs must be floating point (do not clip or cast back to `uint8`).\n- **Zero padding** means pixels outside the image border are treated as `0`.\n- **Library helpers are not allowed.** Do not call `cv2.filter2D`, `cv2.GaussianBlur`, `cv2.Sobel`, or `scipy.ndimage` / `scipy.signal` convolution functions. Build everything from NumPy.",
+    "short_text": "TerraScan: Aerial Filter Engine",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_2",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "eeb71397-e5f3-4734-9f0a-496cc61c1519",
+    "test_cases": [
+        {
+            "test_case_enum": "PY1",
+            "display_text": "The solution should run without any errors",
+            "weightage": 5
+        },
+        {
+            "test_case_enum": "PY2",
+            "display_text": "box_kernel(size) should return a size x size array where all entries are equal and the kernel sums to 1",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY3",
+            "display_text": "gaussian_kernel(size, sigma) should return a normalized (sums to 1), symmetric kernel with its peak value at the center",
+            "weightage": 12
+        },
+        {
+            "test_case_enum": "PY4",
+            "display_text": "sharpen_kernel() should return the 3x3 kernel [[0,-1,0],[-1,5,-1],[0,-1,0]]",
+            "weightage": 8
+        },
+        {
+            "test_case_enum": "PY5",
+            "display_text": "sobel_kernels() should return a tuple (sobel_x, sobel_y) of the two correct 3x3 Sobel kernels, each summing to 0",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY6",
+            "display_text": "apply_filter(image, kernel) should return an array the same height and width as the input, and applying the identity kernel should return the original image (correct zero padding and same-size output)",
+            "weightage": 15
+        },
+        {
+            "test_case_enum": "PY7",
+            "display_text": "apply_filter with a box kernel should match the reference box-blurred output (correct cross-correlation)",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY8",
+            "display_text": "apply_filter with the Sobel kernels should match the reference edge-detection output",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY9",
+            "display_text": "convolve(image, kernel) should perform true convolution: it must DIFFER from apply_filter for an asymmetric kernel (kernel flipped) and equal cross-correlation with the flipped kernel",
+            "weightage": 10
+        },
+        {
+            "test_case_enum": "PY10",
+            "display_text": "For a symmetric kernel (Gaussian), convolve and apply_filter should produce the same result",
+            "weightage": 5
+        },
+        {
+            "test_case_enum": "PY11",
+            "display_text": "The solution should finish running within 90 seconds",
+            "weightage": 5
+        }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+}
