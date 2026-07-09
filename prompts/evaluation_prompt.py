@@ -17,6 +17,10 @@ PHASE 1 OF 2 — Your job in this phase:
 
 You have access to run_python to execute real code. Use it.
 
+Be economical with tool calls: build ONE strong reference solution and ONE lazy
+baseline. Do NOT train many model variants to calibrate - you have a limited
+number of tool turns and must save them for producing the proposal.
+
 ════════════════════════════════════════════════════════════
 STEP 1 — BUILD THE REFERENCE SOLUTION
 ════════════════════════════════════════════════════════════

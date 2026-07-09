@@ -243,6 +243,45 @@ elif kind == "draft_action":
         ws.answer("B")
         st.rerun()
 
+elif kind == "edit_dataset":
+    st.subheader("Edit dataset")
+    st.caption("Presets run as deterministic code. Ground truth is never changed; "
+               "size/noise/nulls apply to train only; dropped columns are removed from train + test.")
+    atype = pending.get("assignment_type", "tabular")
+    columns = pending.get("columns", [])
+    with st.form("edit_form"):
+        resize = st.slider(
+            "Train size factor  (1.0 = unchanged, <1 subsample, >1 bootstrap-duplicate)",
+            0.25, 2.0, 1.0, 0.05,
+        )
+        rebalance = st.checkbox("Rebalance classes (down-sample to the smallest class)")
+        add_noise, inject_nulls, drop_cols = 0.0, 0.0, []
+        if atype == "tabular":
+            add_noise = st.slider("Add Gaussian noise to numeric features (intensity × std)",
+                                  0.0, 0.5, 0.0, 0.05)
+            inject_nulls = st.slider("Inject nulls into train features (fraction of cells)",
+                                     0.0, 0.3, 0.0, 0.05)
+            drop_cols = st.multiselect("Drop feature columns (removed from train + test)", columns)
+        freeform = st.text_area("Extra instructions (optional, freeform → model edit)", "")
+        c1, c2 = st.columns(2)
+        apply_clicked = c1.form_submit_button("Apply", type="primary")
+        cancel_clicked = c2.form_submit_button("Cancel / back")
+
+    if cancel_clicked:
+        ws.answer({"cancel": True})
+        st.rerun()
+    if apply_clicked:
+        ws.answer({
+            "cancel": False,
+            "resize_factor": resize,
+            "rebalance": rebalance,
+            "add_noise": add_noise,
+            "inject_nulls": inject_nulls,
+            "drop_columns": drop_cols,
+            "freeform": freeform,
+        })
+        st.rerun()
+
 elif kind == "eval_action":
     st.subheader("Review proposed test cases")
     proposal = latest_event(events, "test_proposal")

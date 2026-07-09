@@ -232,6 +232,7 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
     phase1_response = ""
     approved_test_cases = ""
     reference_solution_code = ""
+    phase1_attempts = 0
 
     while True:
         io.emit("log", text="Phase 1: building reference solution + proposing test cases "
@@ -258,11 +259,23 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
             user=phase1_prompt,
             tools=ALL_TOOLS,
             tool_executor=tool_executor,
-            max_turns=15,
+            max_turns=24,
         )
 
         proposal = _parse_test_proposal(phase1_response)
         reference_solution_code = _extract_solution_code(phase1_response)
+
+        # Guard: model ran out of tool turns before producing a proposal.
+        if "[max_turns reached" in phase1_response:
+            phase1_attempts += 1
+            if phase1_attempts < 2:
+                io.emit("notice", text="Phase 1 ran out of tool turns before proposing. "
+                                       "Retrying more economically...")
+                extra_feedback = ("You ran out of turns. Build only ONE reference solution and "
+                                  "ONE lazy baseline, compute the metric, then STOP and output "
+                                  "the ---TEST_CASE_PROPOSAL--- block immediately.")
+                continue
+            io.emit("notice", text="Phase 1 still did not finish; review the partial output below.")
 
         # ── HITL pause ──────────────────────────────────────────────────
         action, feedback_or_cases = _hitl_review(proposal, io)

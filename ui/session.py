@@ -90,6 +90,11 @@ class TerminalIO:
             return input("\nYour choice [A/EP/ED/SD/B]: ").strip().upper()
         if kind == "eval_action":
             return input("\nYour choice [A/D/R]: ").strip().upper()
+        if kind == "edit_dataset":
+            # CLI has no rich panel; fall back to a freeform instruction.
+            text = input("Describe dataset edit (or 'back' to cancel): ").strip()
+            cancel = text.lower() == "back"
+            return {"cancel": cancel, "freeform": "" if cancel else text}
         prompt = spec.get("prompt", "> ")
         return input(prompt + (" " if not prompt.endswith(" ") else "")).strip()
 

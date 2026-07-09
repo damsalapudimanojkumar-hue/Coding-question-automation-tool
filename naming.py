@@ -55,10 +55,22 @@ def asset_paths(workspace: str, code: str) -> dict:
     }
 
 
-def filename_instructions(code: str) -> str:
+def filename_instructions(code: str, workspace: str = None) -> str:
     """Explicit, unambiguous filename block injected into agent prompts so the
-    model writes/reads the suffixed names instead of generic ones."""
+    model writes/reads the suffixed names instead of generic ones. When a
+    workspace is given, ABSOLUTE paths are included so the model never depends
+    on the current working directory (which is a temp scratch dir)."""
     names = asset_relnames(code)
+    if workspace:
+        paths = asset_paths(workspace, code)
+        return (
+            "EXACT DATA FILE PATHS (read/write these ABSOLUTE paths precisely, "
+            "never relative names, never S3 URLs):\n"
+            f"- training data (includes target)  -> {paths['dataset_train']}\n"
+            f"- test data (features only)        -> {paths['dataset_test']}\n"
+            f"- held-out ground truth (targets)  -> {paths['ground_truth']}\n"
+            "conftest.py, pytest.ini, requirements.txt keep their exact generic names."
+        )
     return (
         "EXACT DATA FILENAMES (use these precisely, never generic names, no S3 URLs):\n"
         f"- training data (includes target)  -> {names['dataset_train']}  (workspace root)\n"

@@ -121,7 +121,7 @@ RUN_PYTEST_TOOL = {
                     "description": "Absolute path to the directory to run pytest in"
                 }
             },
-            "required": ["working_dir"]
+            "required": ["working_dir"]  
         }
     }
 }

@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude, call_claude_with_tools
 from naming import asset_paths, filename_instructions, make_code
+from dataset_ops import apply_edits, feature_columns
 from ui.session import TerminalIO
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
@@ -176,24 +177,96 @@ def _revise_statement(state, statement, io):
     return _between(response, "---PROBLEM_STATEMENT---", "---END_PROBLEM_STATEMENT---")
 
 
-def _change_dataset(state, selected, plan, statement, workspace, code, io, synthetic=False):
-    if synthetic:
-        instructions = io.ask({"kind": "text",
-                               "prompt": "Synthetic dataset requirements (blank for model defaults):"})
-        system = SYNTHETIC_SYSTEM_PROMPT
-    else:
-        instructions = io.ask({"kind": "text", "prompt": "Describe how to modify the existing dataset:"})
-        system = DATASET_EDIT_SYSTEM_PROMPT
+def _any_refreshed(before):
+    """True if ANY tracked dataset file changed on disk during this attempt."""
+    return any(
+        os.path.isfile(path) and os.stat(path).st_mtime_ns != old_mtime
+        for path, old_mtime in before.items()
+    )
+
+
+def _llm_dataset_op(state, selected, plan, statement, workspace, code, instructions, io, synthetic=False):
+    """LLM-driven dataset change (synthetic replacement or freeform edit).
+    Reliability fixes vs the old version: ABSOLUTE paths (no cwd ambiguity),
+    higher turn budget, and a no-op notice if nothing actually changed."""
+    system = SYNTHETIC_SYSTEM_PROMPT if synthetic else DATASET_EDIT_SYSTEM_PROMPT
+    before = _dataset_snapshot(workspace, code)
     response = call_claude_with_tools(
         system=system,
         user=build_dataset_change_user_prompt(
             selected, statement, plan, instructions or "Use suitable defaults.", workspace,
-            _question_reference_formats(), filename_instructions(code),
+            _question_reference_formats(), filename_instructions(code, workspace),
         ),
-        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=12,
+        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=24,
     )
     new_plan, new_statement = _parse_design(response)
-    return new_plan or plan, new_statement or statement, instructions
+    if not _any_refreshed(before) and not (new_plan or new_statement):
+        io.emit("notice", text="The model reported no changes to the dataset files.")
+    return new_plan or plan, new_statement or statement
+
+
+def _change_dataset(state, selected, plan, statement, workspace, code, io, synthetic=False):
+    """Synthetic replacement (SD action): ask requirements, then run the LLM op."""
+    prompt = ("Synthetic dataset requirements (blank for model defaults):" if synthetic
+              else "Describe how to modify the existing dataset:")
+    instructions = io.ask({"kind": "text", "prompt": prompt})
+    new_plan, new_statement = _llm_dataset_op(
+        state, selected, plan, statement, workspace, code, instructions, io, synthetic=synthetic
+    )
+    return new_plan, new_statement, instructions
+
+
+def _refresh_statement_for_facts(statement, new_plan):
+    """Update the student-facing statement to match new verified dataset facts
+    (used only when preset edits change the feature set)."""
+    response = call_claude(
+        system=REVISION_SYSTEM_PROMPT,
+        user=build_revision_user_prompt(
+            statement,
+            "The dataset changed. Update any dataset facts (feature list / columns) to match "
+            "the verified summary below. Do not invent numbers.\n\n" + new_plan,
+            _question_reference_formats(),
+        ),
+        max_tokens=4000,
+    )
+    return _between(response, "---PROBLEM_STATEMENT---", "---END_PROBLEM_STATEMENT---")
+
+
+def _apply_dataset_edits(state, selected, plan, statement, workspace, code, spec, io):
+    """Deterministic preset edits (pandas, no LLM) plus optional freeform edit.
+    Returns (new_plan, new_statement, note)."""
+    ops = {k: spec.get(k) for k in
+           ("drop_columns", "rebalance", "resize_factor", "add_noise", "inject_nulls")}
+    try:
+        summary = apply_edits(workspace, code, ops)
+    except Exception as e:  # noqa: BLE001 - surfaced to the user, never crashes the run
+        io.emit("notice", text=f"Preset edit failed: {type(e).__name__}: {e}")
+        return plan, statement, "edit failed"
+
+    changes = summary["changes"] or ["no preset changes selected"]
+    io.emit("notice", text="Applied: " + "; ".join(changes))
+    new_plan = (
+        "Dataset (after preset edits)\n"
+        f"Train shape: {summary['new_train_shape']} (was {summary['orig_train_shape']})\n"
+        f"Test shape: {summary['test_shape']}\n"
+        f"Target: {summary['target']}\n"
+        f"Features: {summary['features']}\n"
+        "Edits applied: " + "; ".join(changes)
+    )
+
+    new_statement = statement
+    if ops.get("drop_columns"):        # feature set changed -> refresh the statement
+        refreshed = _refresh_statement_for_facts(statement, new_plan)
+        if refreshed:
+            new_statement = refreshed
+
+    freeform = (spec.get("freeform") or "").strip()
+    if freeform:                       # extra instructions -> LLM edit on top
+        new_plan, new_statement = _llm_dataset_op(
+            state, selected, new_plan, new_statement, workspace, code, freeform, io, synthetic=False
+        )
+
+    return new_plan, new_statement, "; ".join(changes)
 
 
 def problem_dataset_agent(state: dict, io=None) -> dict:
@@ -263,12 +336,24 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
                     statement = revised
                 else:
                     io.emit("notice", text="Revision could not be parsed; keeping the current draft.")
-            elif action in {"ED", "SD"}:
+            elif action == "SD":
                 plan, statement, note = _change_dataset(
-                    state, selected, plan, statement, workspace, code, io, synthetic=(action == "SD")
+                    state, selected, plan, statement, workspace, code, io, synthetic=True
                 )
-                prefix = "Synthetic replacement" if action == "SD" else "Dataset edit"
-                modification_notes = f"{prefix}: {note or 'model defaults'}"
+                modification_notes = f"Synthetic replacement: {note or 'model defaults'}"
+            elif action == "ED":
+                spec = io.ask({
+                    "kind": "edit_dataset",
+                    "assignment_type": state.get("assignment_type", "tabular"),
+                    "columns": feature_columns(workspace, code),
+                })
+                if not isinstance(spec, dict) or spec.get("cancel"):
+                    io.emit("notice", text="Edit cancelled; dataset unchanged.")
+                else:
+                    plan, statement, note = _apply_dataset_edits(
+                        state, selected, plan, statement, workspace, code, spec, io
+                    )
+                    modification_notes = f"Dataset edit: {note}"
             elif action == "B":
                 break
             else:
