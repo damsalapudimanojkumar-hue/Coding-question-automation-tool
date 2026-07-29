@@ -20,7 +20,10 @@ class AssignmentState(TypedDict):
     wiki_instructions_context: Optional[str]
     wiki_dataset_context: Optional[str]
     wiki_reference_formats: Optional[str]
+    wiki_reference_problem: Optional[str]  # code-editor: description-phase reference (structure guide)
+    wiki_reference_tests: Optional[str]    # code-editor: tests-phase reference (test-design guide)
     wiki_examples: Optional[str]           # complete worked-example bundles
+    wiki_examples_raw: Optional[List]      # code-editor: parsed example configs, sliced per phase
     wiki_curriculum: Optional[str]         # taught-content slice for the current topic
     wiki_eval_styles: Optional[str]        # program-wide "six evaluation styles" reference
     output_dir: Optional[str]  # absolute assignment-specific output folder

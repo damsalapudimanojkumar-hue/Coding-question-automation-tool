@@ -123,16 +123,18 @@ def build_codeeditor_problem_prompt(topic, learning_objective, research_output,
     return f"""TOPIC: {topic}
 LEARNING OBJECTIVE: {learning_objective}
 {spec}
-{inspiration}FORMAT + FIELD REFERENCE (field meanings and the house structure/formula style;
-ignore any single-blob JSON layout - you output the fenced blocks from the system prompt):
+{inspiration}HOUSE STRUCTURE / FORMULA-STYLE GUIDE:
 {reference_docs}
 
-GOLD EXAMPLES (match their structure, plain-text formula style, and quality - NOT layout):
+GOLD EXAMPLE DESCRIPTIONS (these are real house-style questions — match their clarity,
+concision, plain-text formula style, and section structure; write descriptions that read
+this cleanly):
 {example_config}
 
 Now design ONLY the problem: intro, plain-text formula, Parameters, Requirements, Returns,
-and the function signature (starter + reference solution). No test cases yet. Emit the four
-blocks (QUESTION_MD, SOLUTION_PY, STARTER_PY, META_JSON) in order.
+and the function signature (starter + reference solution). Write the description with the
+same clean, clear, unpadded style as the examples above — no filler, no restating. No test
+cases yet. Emit the four blocks (QUESTION_MD, SOLUTION_PY, STARTER_PY, META_JSON) in order.
 """
 
 
@@ -202,9 +204,13 @@ no prose, no ```fences```). Start your response with the opening marker:
 ---END_TESTS---"""
 
 
-def build_codeeditor_tests_prompt(problem_config, reference_docs, num_tests=10):
+def build_codeeditor_tests_prompt(problem_config, reference_docs, num_tests=10, example_tests=""):
     q = problem_config.get("rephrased_question_text") or problem_config.get("question_text", "")
     params = ", ".join(problem_config.get("param_names", []))
+    examples_block = ""
+    if example_tests:
+        examples_block = ("EXAMPLE TEST-CASE SETS (match this shape — visible/hidden split, "
+                          "small readable inputs, weightage spread):\n" + example_tests + "\n\n")
     return f"""Design test cases for this FIXED question.
 
 QUESTION:
@@ -219,7 +225,8 @@ must be valid for it):
 TEST-CASE DESIGN GUIDE:
 {reference_docs}
 
-Design exactly {num_tests} test cases (first 3-4 visible, the rest hidden, weightages summing
-to 100). Return ONLY the test_definitions JSON between the ---TESTS_JSON--- markers, with no
-text before or after.
+{examples_block}Design exactly {num_tests} test cases (first 3-4 visible, the rest hidden,
+weightages summing to 100). Prefer SMALL, human-readable inputs for the VISIBLE cases — they
+are shown to the student as the worked samples. Return ONLY the test_definitions JSON between
+the ---TESTS_JSON--- markers, with no text before or after.
 """

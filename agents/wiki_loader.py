@@ -320,6 +320,25 @@ def _load_codeeditor_reference() -> str:
     return "\n\n---\n\n".join(_read(f) for f in files) if files else "[No code-editor reference docs.]"
 
 
+def _load_codeeditor_examples_raw() -> list:
+    """Parsed example configs, so the design agent can slice each one by phase
+    (feed only the DESCRIPTION to the problem step, only the TEST PATTERNS to the
+    tests step) instead of dumping the whole config into every prompt."""
+    folder = os.path.join(KNOWLEDGE_DIR, "examples", "code_editor_type")
+    out = []
+    for f in sorted(glob.glob(os.path.join(folder, "*.json"))):
+        try:
+            out.append(json.loads(_read(f)))
+        except Exception:  # noqa: BLE001 - skip a malformed example, don't crash the load
+            pass
+    return out
+
+
+def _load_codeeditor_reference_doc(filename: str) -> str:
+    path = os.path.join(KNOWLEDGE_DIR, "reference_formats", "code_editor_type", filename)
+    return _read(path) if os.path.isfile(path) else ""
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # The node function — this is what LangGraph calls
 # ══════════════════════════════════════════════════════════════════════════
@@ -345,19 +364,25 @@ def wiki_loader_agent(state: dict) -> dict:
 
     # ── Code-editor mode: load only its lean context (no dataset/curriculum/pytest skills) ──
     if config_type == "code_editor_type":
-        examples_context = _load_codeeditor_examples()
+        examples_context = _load_codeeditor_examples()          # full string (compat / display)
+        examples_raw = _load_codeeditor_examples_raw()          # parsed, for per-phase slicing
         reference_formats_context = _load_codeeditor_reference()
+        ref_problem = _load_codeeditor_reference_doc("question_structure.md")  # description phase
+        ref_tests = _load_codeeditor_reference_doc("test_case_design.md")      # tests phase
         research_context = _load_past_assignments(config_type, assignment_type)  # empty until built
-        ce_examples = len(glob.glob(os.path.join(KNOWLEDGE_DIR, "examples", "code_editor_type", "*.json")))
-        print(f"  Code-editor examples    : {ce_examples} config(s)")
-        print(f"  Code-editor reference   : {'loaded' if not reference_formats_context.startswith('[') else 'MISSING'}")
+        print(f"  Code-editor examples    : {len(examples_raw)} config(s)")
+        print(f"  Code-editor reference   : problem={'ok' if ref_problem else 'MISSING'}, "
+              f"tests={'ok' if ref_tests else 'MISSING'}")
         return {
             "wiki_research_context": research_context,
             "wiki_skill_context": "",
             "wiki_instructions_context": "",
             "wiki_dataset_context": "",
             "wiki_reference_formats": reference_formats_context,
+            "wiki_reference_problem": ref_problem,
+            "wiki_reference_tests": ref_tests,
             "wiki_examples": examples_context,
+            "wiki_examples_raw": examples_raw,
             "wiki_curriculum": "",
             "wiki_eval_styles": "",
             "output_dir": output_dir,

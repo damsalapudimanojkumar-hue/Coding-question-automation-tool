@@ -190,37 +190,33 @@ def _compute_cases(problem_config: dict, test_definitions: list) -> tuple:
         return [], f"{type(e).__name__}: {e}"
 
 
-def _append_examples(problem_config: dict, cases: list, k: int = 2) -> dict:
-    """Append an **Examples** section as a python code block built from the first k
-    visible cases with their real computed outputs (LeetCode-style, named args), so
-    the shown examples always match grading and read cleanly in a narrow panel."""
-    visible = [c for c in cases if not c.get("is_hidden")][:k]
-    if not visible:
-        return problem_config
-    body = problem_config.get("question_text", "").rstrip()
-    if "**Examples**" in body:
-        return problem_config
-    fn = problem_config.get("function_name", "f")
-    params = problem_config.get("param_names", [])
+def _example_descriptions(raw: list, k: int = 3) -> str:
+    """Slice examples down to just their DESCRIPTIONS (+ signature) for the problem
+    phase - no solution_code, no test JSON - so the model reads only clean prose to
+    imitate (removes the ~70% code/test noise the full config would carry)."""
     blocks = []
-    for c in visible:
-        try:
-            args = json.loads(c["input"])
-        except Exception:  # noqa: BLE001
-            args = None
-        if args is not None and len(args) == len(params) and params:
-            if len(params) <= 2:
-                call = f"{fn}(" + ", ".join(f"{p}={json.dumps(v)}" for p, v in zip(params, args)) + ")"
-            else:
-                inner = ",\n".join(f"    {p}={json.dumps(v)}" for p, v in zip(params, args))
-                call = f"{fn}(\n{inner},\n)"
-        else:
-            call = f"{fn}({c['input']})"
-        blocks.append(f"{call}\n# -> {c['output']}")
-    examples = "\n\n**Examples**\n\n```python\n" + "\n\n".join(blocks) + "\n```\n"
-    out = dict(problem_config)
-    out["question_text"] = body + examples
-    return out
+    for c in (raw or [])[:k]:
+        title = c.get("rephrased_short_text") or c.get("short_text", "")
+        params = ", ".join(c.get("param_names", []))
+        fn = c.get("function_name", "")
+        qt = c.get("rephrased_question_text") or c.get("question_text", "")
+        blocks.append(f"# {title}\nFunction: {fn}({params})\n\n{qt}")
+    return "\n\n---\n\n".join(blocks) if blocks else "[no example descriptions yet]"
+
+
+def _example_tests(raw: list, k: int = 2) -> str:
+    """Slice examples down to just their TEST-CASE PATTERNS for the tests phase."""
+    blocks = []
+    for c in (raw or [])[:k]:
+        fn = c.get("function_name", "")
+        params = ", ".join(c.get("param_names", []))
+        tds = c.get("test_definitions", []) or []
+        compact = [{"inputs": t.get("inputs"),
+                    "is_hidden": t.get("is_hidden", False),
+                    "weightage": t.get("weightage", 10)} for t in tds]
+        blocks.append(f"# {c.get('short_text','')} - {fn}({params})\n"
+                      + json.dumps({"test_definitions": compact}, indent=1))
+    return "\n\n".join(blocks) if blocks else ""
 
 
 # ── LLM passes ───────────────────────────────────────────────────────────────
@@ -234,8 +230,8 @@ def _design_problem(state: dict, feedback: str = "", idea=None) -> tuple:
         topic=state["topic"],
         learning_objective=state.get("learning_objective", ""),
         research_output=state.get("research_output", ""),
-        reference_docs=state.get("wiki_reference_formats", ""),
-        example_config=state.get("wiki_examples", ""),
+        reference_docs=state.get("wiki_reference_problem") or state.get("wiki_reference_formats", ""),
+        example_config=_example_descriptions(state.get("wiki_examples_raw") or []),
         difficulty=difficulty,
         idea=idea,
     )
@@ -267,8 +263,9 @@ def _design_tests(state: dict, problem_config: dict, feedback: str = "") -> tupl
     num_tests = int(state.get("codeeditor_num_tests", 10) or 10)
     prompt = build_codeeditor_tests_prompt(
         problem_config=problem_config,
-        reference_docs=state.get("wiki_reference_formats", ""),
+        reference_docs=state.get("wiki_reference_tests") or state.get("wiki_reference_formats", ""),
         num_tests=num_tests,
+        example_tests=_example_tests(state.get("wiki_examples_raw") or []),
     )
     if feedback:
         prompt += ("\n\nREVISION REQUESTED — address this precisely and re-emit the FULL "
@@ -328,10 +325,8 @@ def codeeditor_design_agent(state: dict, io) -> dict:
             break
         feedback = "" if decision == "regenerate" else decision
 
-    # ---- Examples section (from real computed visible cases) ----
-    if state.get("codeeditor_include_examples", True):
-        problem = _append_examples(problem, cases)
-
+    # The visible test cases ARE the worked samples (shown in the platform's test
+    # panel), so we no longer append a separate Examples section to the description.
     config = dict(problem)
     config["test_definitions"] = tds
     return {"codeeditor_config": config, "current_stage": "codeeditor_designed"}
