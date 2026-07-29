@@ -12,6 +12,7 @@ from claude_client import call_claude, call_claude_with_tools
 from naming import asset_paths, filename_instructions, make_code
 from dataset_ops import apply_edits, feature_columns
 from ui.session import TerminalIO
+from tracing import observe
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
     DATASET_DRAFT_SYSTEM_PROMPT,
@@ -118,6 +119,7 @@ def _generate_options(state, existing):
             state["topic"], state.get("learning_objective", ""),
             state.get("research_output", ""), state.get("wiki_dataset_context", ""),
             json.dumps(existing, indent=2) if existing else None,
+            curriculum=state.get("wiki_curriculum", ""),
         ),
         max_tokens=3000,
     )
@@ -236,7 +238,7 @@ def _apply_dataset_edits(state, selected, plan, statement, workspace, code, spec
     """Deterministic preset edits (pandas, no LLM) plus optional freeform edit.
     Returns (new_plan, new_statement, note)."""
     ops = {k: spec.get(k) for k in
-           ("drop_columns", "rebalance", "resize_factor", "add_noise", "inject_nulls")}
+           ("drop_columns", "rebalance", "resize_factor", "add_noise", "inject_nulls", "impute")}
     try:
         summary = apply_edits(workspace, code, ops)
     except Exception as e:  # noqa: BLE001 - surfaced to the user, never crashes the run
@@ -269,6 +271,7 @@ def _apply_dataset_edits(state, selected, plan, statement, workspace, code, spec
     return new_plan, new_statement, "; ".join(changes)
 
 
+@observe(as_type="agent")
 def problem_dataset_agent(state: dict, io=None) -> dict:
     io = io or TerminalIO()
     workspace = state.get("output_dir")

@@ -9,16 +9,23 @@ Avoid datasets already listed in the internal library. Return only valid JSON be
 Use realistic estimated row counts and balance, but do not claim they were verified."""
 
 DATASET_DRAFT_SYSTEM_PROMPT = """You are the Problem + Dataset Designer for an ML learning platform.
-The human has selected one candidate. Now obtain the real dataset, inspect it with run_python, clean it,
+The human has selected one candidate. Now obtain the real dataset, inspect it with run_python,
 split it reproducibly, and save the three data files using the EXACT DATA FILENAMES given in the user
 message (they carry an assignment-specific suffix). Save all files in the exact workspace supplied, with
 the ground-truth file inside the workspace's tests/ subfolder. Prefer a reliable public source; use a
 synthetic fallback when access fails.
 The training file must include the target. The test file must contain features only, with no target
 or answer leakage. The ground-truth file must contain the corresponding held-out target values.
+MISSING VALUES POLICY (important): This is a structural step only. Do NOT impute, fill, drop, encode, or
+otherwise ALTER any feature values. Preserve the original data exactly, INCLUDING missing values (nulls) in
+the TRAINING set - handling them is deliberately left as the student's task. The ONE exception: the TEST set
+must contain NO missing values. Achieve this WITHOUT imputing: perform the split so that every row containing
+any null goes into the TRAINING set, and draw the test set only from fully-complete rows (keep it stratified
+by the target where possible). Ground truth is the target of those complete test rows. Never fill a null anywhere.
 The run_python tool starts a fresh process on every call, so variables do not persist between calls.
 Use early calls only to lightly inspect (shape, nulls, head, class balance). Then use ONE self-contained
-final run_python call that reloads, cleans, splits, and saves all three files.
+final run_python call that reloads, splits (routing all null-containing rows into train, test from complete
+rows only), and saves all three files - with no value imputation or cleaning.
 Always save using the ABSOLUTE workspace path given in the user message (never relative filenames), and
 create the tests/ subfolder with os.makedirs(..., exist_ok=True).
 CRITICAL SCOPE: You are Agent 2 only. Do NOT train, fit, or evaluate any models. Do NOT compute metrics
@@ -62,7 +69,14 @@ PROBLEM_DATASET_SYSTEM_PROMPT = DATASET_DRAFT_SYSTEM_PROMPT
 
 
 def build_options_user_prompt(topic, learning_objective, research_output,
-                              wiki_dataset_context, existing_options=None):
+                              wiki_dataset_context, existing_options=None, curriculum=""):
+    curriculum_block = ""
+    if curriculum and not curriculum.startswith("["):
+        curriculum_block = (
+            "\nTAUGHT CONTENT FOR THIS TOPIC (align options to this depth/vocabulary; "
+            "the 'Assessed by' line is the EXISTING assignment - your options must differ "
+            f"in dataset and framing):\n{curriculum}\n"
+        )
     return f"""TOPIC: {topic}
 LEARNING OBJECTIVE: {learning_objective}
 RESEARCH BRIEF:
@@ -70,7 +84,7 @@ RESEARCH BRIEF:
 
 DATASETS ALREADY USED:
 {wiki_dataset_context}
-
+{curriculum_block}
 OPTIONS ALREADY SHOWN (do not repeat):
 {existing_options or 'None'}
 """

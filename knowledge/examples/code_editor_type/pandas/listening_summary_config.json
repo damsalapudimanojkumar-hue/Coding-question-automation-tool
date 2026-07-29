@@ -1,0 +1,100 @@
+{
+  "question_text": "You are working with a **Spotify-style listening dataset** that records how long users listen to different songs. Your task is to summarize listening behavior **per user**.\r\n\r\n**Input DataFrame:** `listening_habits`\r\n\r\n| Column Name     | Type    |\r\n| --------------- | ------- |\r\n| user_id         | int64   |\r\n| song_id         | int64   |\r\n| listen_duration | float64 |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview Input Data</summary>\r\n\r\n---\r\n\r\n| user\\_id | song\\_id | listen\\_duration |\r\n| ------: | ------: | --------------: |\r\n|     101 |    5001 |             240 |\r\n|     101 |    5002 |               0 |\r\n|     102 |    5001 |             300 |\r\n|     102 |    5003 |               0 |\r\n|     101 |    5001 |             240 |\r\n|     103 |    5004 |             180 |\r\n|     104 |    5005 |             360 |\r\n|     104 |    5006 |               0 |\r\n|     105 |    5007 |             210 |\r\n|     103 |    5004 |             180 |\r\n|     106 |    5008 |             200 |\r\n|     107 |    5009 |             220 |\r\n|     108 |    5010 |             250 |\r\n|     108 |    5006 |             260 |\r\n|     109 |    5011 |               0 |\r\n\r\n---\r\n\r\n</details>\r\n\r\n\r\n**Requirements**\r\n\r\n- Group the data by user\r\n- Calculate total listening time in **minutes (rounded)**, the raw duration is in seconds\r\n- Count the number of **distinct songs** each user listened to\r\n- Users with zero-duration listens should still be included if they have listening records\r\n- Use the provided `listening_habits` DataFrame as-is, do not modify or reconstruct the dataset\r\n\r\n**Returns**\r\n\r\n- `pandas.DataFrame` with columns:\r\n  - `user_id`: Unique identifier for the user\r\n  - `total_listen_duration`: Total listening time in minutes (rounded)\r\n  - `unique_song_count`: Number of distinct songs listened to",
+  "short_text": "Summarize User Listening Behavior",
+  "difficulty": "EASY",
+  "function_name": "user_listening_summary",
+  "param_names": [
+    "listening_habits"
+  ],
+  "starter_code": "import pandas as pd\r\n\r\ndef user_listening_summary(listening_habits):\r\n    \"\"\"\r\n    Summarize listening behavior per user including total listen duration\r\n    in minutes (rounded) and count of distinct songs.\r\n    \"\"\"\r\n    # Your code here\r\n    return",
+  "solution_code": "import pandas as pd\ndef user_listening_summary(listening_habits):\n    res = listening_habits.groupby(\"user_id\").agg(\n        total_listen_duration=(\"listen_duration\", lambda s: round(s.sum() / 60)),\n        unique_song_count=(\"song_id\", \"nunique\"),\n    ).reset_index()\n    return res",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "pandas",
+  "test_definitions": [
+    {
+      "inputs": {
+        "listening_habits": [
+          {
+            "user_id": 101,
+            "song_id": 5001,
+            "listen_duration": 240
+          },
+          {
+            "user_id": 101,
+            "song_id": 5002,
+            "listen_duration": 0
+          },
+          {
+            "user_id": 102,
+            "song_id": 5001,
+            "listen_duration": 300
+          },
+          {
+            "user_id": 102,
+            "song_id": 5003,
+            "listen_duration": 0
+          },
+          {
+            "user_id": 101,
+            "song_id": 5001,
+            "listen_duration": 240
+          },
+          {
+            "user_id": 103,
+            "song_id": 5004,
+            "listen_duration": 180
+          },
+          {
+            "user_id": 104,
+            "song_id": 5005,
+            "listen_duration": 360
+          },
+          {
+            "user_id": 104,
+            "song_id": 5006,
+            "listen_duration": 0
+          },
+          {
+            "user_id": 105,
+            "song_id": 5007,
+            "listen_duration": 210
+          },
+          {
+            "user_id": 103,
+            "song_id": 5004,
+            "listen_duration": 180
+          },
+          {
+            "user_id": 106,
+            "song_id": 5008,
+            "listen_duration": 200
+          },
+          {
+            "user_id": 107,
+            "song_id": 5009,
+            "listen_duration": 220
+          },
+          {
+            "user_id": 108,
+            "song_id": 5010,
+            "listen_duration": 250
+          },
+          {
+            "user_id": 108,
+            "song_id": 5006,
+            "listen_duration": 260
+          },
+          {
+            "user_id": 109,
+            "song_id": 5011,
+            "listen_duration": 0
+          }
+        ]
+      },
+      "is_hidden": false,
+      "weightage": 100
+    }
+  ]
+}

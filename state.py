@@ -21,10 +21,13 @@ class AssignmentState(TypedDict):
     wiki_dataset_context: Optional[str]
     wiki_reference_formats: Optional[str]
     wiki_examples: Optional[str]           # complete worked-example bundles
+    wiki_curriculum: Optional[str]         # taught-content slice for the current topic
+    wiki_eval_styles: Optional[str]        # program-wide "six evaluation styles" reference
     output_dir: Optional[str]  # absolute assignment-specific output folder
 
     # ── Agent: Research ────────────────────────────────────────────────────
     research_output: Optional[str]
+    research_sites: Optional[List]        # domains Tavily actually surfaced this run
 
     # ── Agent 2: Problem + Dataset Designer (3-phase with HITL) ────────────
     # Phase 1: candidate options
@@ -40,6 +43,16 @@ class AssignmentState(TypedDict):
     dataset_plan: Optional[str]                     # final approved
     dataset_files: Optional[Dict]                   # {filename: path}
     dataset_files_path: Optional[str]
+
+    # ── Code-editor mode (config_type == code_editor_type) ────────────────
+    codeeditor_config: Optional[Dict]     # approved question config for the generator
+    codeeditor_deliverable: Optional[str] # path to the generated .zip
+    codeeditor_readable_files: Optional[List]  # readable copies written next to the zip
+    # user-facing options
+    codeeditor_difficulty: Optional[str]       # "EASY"|"MEDIUM"|"HARD"|"" (auto)
+    codeeditor_num_tests: Optional[int]        # target number of test cases (default 10)
+    codeeditor_num_candidates: Optional[int]   # problem candidates to offer (default 1)
+    codeeditor_include_examples: Optional[bool]  # append an Examples section (default True)
 
     # ── Agent: Test Case Designer ──────────────────────────────────────────
     test_cases: Optional[str]

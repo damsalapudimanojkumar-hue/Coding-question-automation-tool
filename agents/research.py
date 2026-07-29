@@ -23,10 +23,15 @@ import os
 # Allow running this file standalone via test_research.py
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from claude_client import call_claude_with_search
+from claude_client import call_claude_with_search, call_claude_with_tools
 from prompts.research_prompt import RESEARCH_SYSTEM_PROMPT, build_research_user_prompt
+from tools.web_research import (
+    build_search_tool, make_tavily_executor, tavily_available, sites_for, domains_from_urls,
+)
+from tracing import observe
 
 
+@observe(as_type="agent")
 def research_agent(state: dict) -> dict:
     """
     LangGraph node function. Receives the full pipeline state dict,
@@ -48,20 +53,42 @@ def research_agent(state: dict) -> dict:
         topic=topic,
         learning_objective=learning_objective,
         wiki_research_context=wiki_research_context,
+        curriculum=state.get("wiki_curriculum", ""),
     )
 
     print(f"\n{'='*60}")
     print(f"🔍  AGENT 1: RESEARCH")
     print(f"{'='*60}")
     print(f"Researching: {topic}")
-    print("Searching the web and cross-referencing internal wiki...\n")
 
-    response_text = call_claude_with_search(
-        system=RESEARCH_SYSTEM_PROMPT,
-        user=user_prompt,
-    )
+    sites_explored = []
+    if tavily_available():
+        # Way 1: model-driven, domain-scoped Tavily search (capped at 6 turns).
+        # The domain list + tool description follow the assignment format so a
+        # code-editor run searches Deep-ML/TensorTonic, not Kaggle.
+        config_type = state.get("config_type", "vscode_type")
+        print(f"Searching via Tavily (scoped to {', '.join(sites_for(config_type))}) "
+              f"+ internal wiki...\n")
+        executor = make_tavily_executor(config_type)
+        response_text = call_claude_with_tools(
+            system=RESEARCH_SYSTEM_PROMPT,
+            user=user_prompt,
+            tools=[build_search_tool(config_type)],
+            tool_executor=executor,
+            max_turns=6,
+        )
+        sites_explored = domains_from_urls(getattr(executor, "seen", []))
+    else:
+        # Fallback: OpenRouter's built-in web search (no Tavily key set).
+        print("Searching the web (OpenRouter) + internal wiki [set TAVILY_API_KEY for scoped search]...\n")
+        response_text = call_claude_with_search(
+            system=RESEARCH_SYSTEM_PROMPT,
+            user=user_prompt,
+        )
 
     print(response_text)
+    if sites_explored:
+        print("\nSites explored: " + ", ".join(sites_explored))
     print(f"\n{'='*60}\n")
 
-    return {"research_output": response_text}
+    return {"research_output": response_text, "research_sites": sites_explored}

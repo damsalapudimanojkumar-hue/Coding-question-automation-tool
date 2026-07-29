@@ -17,10 +17,13 @@ import json
 import glob
 import re
 import sys
+import uuid
+import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from naming import make_code
+from tracing import observe
 
 KNOWLEDGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowledge")
 PROJECT_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -32,8 +35,15 @@ def make_slug(topic: str) -> str:
     return slug or "assignment"
 
 
-def _prepare_output_dir(topic: str) -> str:
-    output_dir = os.path.abspath(os.path.join(PROJECT_ROOT, "outputs", make_slug(topic)))
+def _prepare_output_dir(topic: str, code: str = None) -> str:
+    """Create a UNIQUE folder per run so re-generating the same topic never
+    overwrites a previous assignment. Name = <slug>_<code>_<timestamp>-<rand>,
+    e.g. outputs/bagging_BAG_20260722-143512-a1b2/."""
+    slug = make_slug(topic)
+    stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    suffix = uuid.uuid4().hex[:4]
+    name = "_".join(part for part in (slug, code, f"{stamp}-{suffix}") if part)
+    output_dir = os.path.abspath(os.path.join(PROJECT_ROOT, "outputs", name))
     os.makedirs(os.path.join(output_dir, "tests"), exist_ok=True)
     return output_dir
 
@@ -125,6 +135,130 @@ def _example_dirs(config_type: str) -> list:
     return sorted(d for d in glob.glob(os.path.join(folder, "*")) if os.path.isdir(d))
 
 
+# ── Curriculum (taught content) — slice by topic so the 100k-token file never
+#    loads whole. Matching is plain word overlap against the module headings. ──
+
+_CURRICULUM_STOP = {"module", "the", "a", "an", "of", "to", "and", "for", "with", "in", "on", "intro"}
+
+
+def _headings(lines):
+    """Return (line_index, level, text) for every markdown heading."""
+    out = []
+    for i, line in enumerate(lines):
+        m = re.match(r"^(#{1,6})\s+(.*\S)\s*$", line)
+        if m:
+            out.append((i, len(m.group(1)), m.group(2)))
+    return out
+
+
+def _sig_words(text):
+    words = re.sub(r"[^a-z0-9\s]", " ", text.lower()).split()
+    return {w for w in words if w and not w.isdigit() and w not in _CURRICULUM_STOP}
+
+
+def _extract_module(text, topic, cap=12000):
+    """Slice the section whose heading best word-matches the topic. Tries
+    module-level (####) first, then unit-level (###). Returns '' if no match."""
+    if not text or not topic:
+        return ""
+    lines = text.splitlines()
+    heads = _headings(lines)
+    topic_words = _sig_words(topic)
+    if not topic_words:
+        return ""
+    for level in (4, 3):
+        best_idx, best_line, best_score = None, None, 0
+        for idx, (i, lvl, htext) in enumerate(heads):
+            if lvl != level:
+                continue
+            score = len(topic_words & _sig_words(htext))
+            if score > best_score:
+                best_idx, best_line, best_score = idx, i, score
+        if best_idx is not None:
+            end = len(lines)
+            for (j, lvl2, _t) in heads[best_idx + 1:]:
+                if lvl2 <= level:
+                    end = j
+                    break
+            return "\n".join(lines[best_line:end]).strip()[:cap]
+    return ""
+
+
+def _extract_named_section(text, needle, cap=8000):
+    """Return the section under the first heading containing `needle`."""
+    if not text:
+        return ""
+    lines = text.splitlines()
+    heads = _headings(lines)
+    for idx, (i, lvl, htext) in enumerate(heads):
+        if needle.lower() in htext.lower():
+            end = len(lines)
+            for (j, lvl2, _t) in heads[idx + 1:]:
+                if lvl2 <= lvl:
+                    end = j
+                    break
+            return "\n".join(lines[i:end]).strip()[:cap]
+    return ""
+
+
+def _curriculum_dir():
+    """Locate the curriculum folder case-insensitively (folder is 'Curriculum';
+    Linux/Streamlit-Cloud is case-sensitive, so we can't hardcode the case)."""
+    if not os.path.isdir(KNOWLEDGE_DIR):
+        return None
+    for name in os.listdir(KNOWLEDGE_DIR):
+        if name.lower() == "curriculum" and os.path.isdir(os.path.join(KNOWLEDGE_DIR, name)):
+            return os.path.join(KNOWLEDGE_DIR, name)
+    return None
+
+
+def _curriculum_text():
+    folder = _curriculum_dir()
+    if not folder:
+        return ""
+    files = [f for f in sorted(glob.glob(os.path.join(folder, "*.md")))
+             if not os.path.basename(f).upper().startswith("README")]
+    return "\n\n".join(_read(f) for f in files) if files else ""
+
+
+def _curriculum_assignments_digest(text: str) -> str:
+    """Compile the program-wide list of assignments already built, from the
+    curriculum's 'Assessed by' lines (each names the topic + dataset). This is
+    the cross-topic 'already used, do not reuse' list — distinct from the
+    topic-only module slice."""
+    lines = []
+    for ln in text.splitlines():
+        s = ln.strip()
+        if s.startswith("**Assessed by"):
+            lines.append("- " + s.replace("**", "").strip())
+    return "\n".join(lines)
+
+
+def _load_curriculum(topic: str) -> str:
+    text = _curriculum_text()
+    if not text:
+        return "[No curriculum file added yet.]"
+
+    parts = []
+    used = _curriculum_assignments_digest(text)
+    if used:
+        parts.append(
+            "PROGRAM-WIDE CODING ASSIGNMENTS ALREADY BUILT (across ALL topics; do NOT "
+            "reuse these datasets or framings):\n" + used
+        )
+    section = _extract_module(text, topic)
+    if section:
+        parts.append("TAUGHT CONTENT FOR THIS TOPIC:\n" + section)
+
+    if not parts:
+        return "[No matching curriculum module for this topic.]"
+    return "\n\n---\n\n".join(parts)
+
+
+def _load_eval_styles() -> str:
+    return _extract_named_section(_curriculum_text(), "evaluation styles")
+
+
 def _load_examples(config_type: str) -> str:
     """
     Loads complete worked-example assignments for this config_type. Each
@@ -162,10 +296,35 @@ def _load_examples(config_type: str) -> str:
     return "\n\n---\n\n".join(bundles)
 
 
+# ── Code-editor (config_type == code_editor_type) loaders ──────────────────
+# Code-editor examples are single .json CONFIG files (not subfolders), and the
+# reference docs live under reference_formats/code_editor_type/.
+
+def _load_codeeditor_examples() -> str:
+    folder = os.path.join(KNOWLEDGE_DIR, "examples", "code_editor_type")
+    if not os.path.isdir(folder):
+        return "[No code-editor examples yet.]"
+    files = sorted(glob.glob(os.path.join(folder, "*.json")))
+    if not files:
+        return "[No code-editor example configs yet.]"
+    parts = [f"# Example config: {os.path.basename(f)}\n```json\n{_read(f)}\n```" for f in files]
+    return "\n\n---\n\n".join(parts)
+
+
+def _load_codeeditor_reference() -> str:
+    folder = os.path.join(KNOWLEDGE_DIR, "reference_formats", "code_editor_type")
+    if not os.path.isdir(folder):
+        return "[No code-editor reference docs yet.]"
+    files = [f for f in sorted(glob.glob(os.path.join(folder, "*.md")))
+             if not os.path.basename(f).upper().startswith("README")]
+    return "\n\n---\n\n".join(_read(f) for f in files) if files else "[No code-editor reference docs.]"
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # The node function — this is what LangGraph calls
 # ══════════════════════════════════════════════════════════════════════════
 
+@observe(name="wiki_loader", as_type="tool")
 def wiki_loader_agent(state: dict) -> dict:
     """
     Reads state['assignment_type'] and state['config_type'],
@@ -173,15 +332,38 @@ def wiki_loader_agent(state: dict) -> dict:
     """
     assignment_type = state["assignment_type"]
     config_type = state.get("config_type", "vscode_type")
-    output_dir = state.get("output_dir") or _prepare_output_dir(state["topic"])
-    state["output_dir"] = output_dir
     assignment_code = make_code(state["topic"], state.get("assignment_code"))
     state["assignment_code"] = assignment_code
+    output_dir = state.get("output_dir") or _prepare_output_dir(state["topic"], assignment_code)
+    state["output_dir"] = output_dir
 
     print("\n" + "=" * 60)
     print("📚  AGENT 0: WIKI LOADER")
     print("=" * 60)
     print(f"Loading context for: {assignment_type} / {config_type}  (code: {assignment_code})")
+    print(f"Output folder: outputs/{os.path.basename(output_dir)}")
+
+    # ── Code-editor mode: load only its lean context (no dataset/curriculum/pytest skills) ──
+    if config_type == "code_editor_type":
+        examples_context = _load_codeeditor_examples()
+        reference_formats_context = _load_codeeditor_reference()
+        research_context = _load_past_assignments(config_type, assignment_type)  # empty until built
+        ce_examples = len(glob.glob(os.path.join(KNOWLEDGE_DIR, "examples", "code_editor_type", "*.json")))
+        print(f"  Code-editor examples    : {ce_examples} config(s)")
+        print(f"  Code-editor reference   : {'loaded' if not reference_formats_context.startswith('[') else 'MISSING'}")
+        return {
+            "wiki_research_context": research_context,
+            "wiki_skill_context": "",
+            "wiki_instructions_context": "",
+            "wiki_dataset_context": "",
+            "wiki_reference_formats": reference_formats_context,
+            "wiki_examples": examples_context,
+            "wiki_curriculum": "",
+            "wiki_eval_styles": "",
+            "output_dir": output_dir,
+            "assignment_code": assignment_code,
+            "current_stage": "wiki_loaded",
+        }
 
     research_context = _load_past_assignments(config_type, assignment_type)
     skill_context = _load_skills()
@@ -189,6 +371,8 @@ def wiki_loader_agent(state: dict) -> dict:
     dataset_context = _load_dataset_library(assignment_type)
     reference_formats_context = _load_reference_formats()
     examples_context = _load_examples(config_type)
+    curriculum_context = _load_curriculum(state["topic"])
+    eval_styles_context = _load_eval_styles()
 
     skill_file_count = len(glob.glob(os.path.join(KNOWLEDGE_DIR, "skills", "*.md")))
     instr_file_count = len(glob.glob(os.path.join(KNOWLEDGE_DIR, "instructions", "*.md")))
@@ -203,6 +387,11 @@ def wiki_loader_agent(state: dict) -> dict:
     print(f"  Dataset library entries : {dataset_entry_count}")
     print(f"  Reference formats loaded: {ref_format_count} files")
     print(f"  Worked examples loaded  : {example_count} files")
+    if curriculum_context and not curriculum_context.startswith("["):
+        matched = curriculum_context.splitlines()[0].lstrip("# ").strip()
+        print(f"  Curriculum slice        : {matched[:55]}")
+    else:
+        print(f"  Curriculum slice        : (no match / no file)")
 
     return {
         "wiki_research_context": research_context,
@@ -211,6 +400,8 @@ def wiki_loader_agent(state: dict) -> dict:
         "wiki_dataset_context": dataset_context,
         "wiki_reference_formats": reference_formats_context,
         "wiki_examples": examples_context,
+        "wiki_curriculum": curriculum_context,
+        "wiki_eval_styles": eval_styles_context,
         "output_dir": output_dir,
         "assignment_code": assignment_code,
         "current_stage": "wiki_loaded",

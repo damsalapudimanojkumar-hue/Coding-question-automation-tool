@@ -1,0 +1,908 @@
+{
+  "question_text": "You are analyzing moderation activity on a platform to understand how effectively reported posts are being reviewed and removed.\r\n\r\nYou are given two datasets:\r\n\r\n- **user_actions** \u2013 captures user activity such as reporting posts\r\n- **post_removals** \u2013 records posts removed by reviewers\r\n\r\nCalculate the **daily post removal ratio**, defined as the number of posts removed on a day divided by the number of unique posts reported on that day.\r\n\r\n**Input DataFrames:** `user_actions`, `post_removals`\r\n\r\n**user_actions**\r\n\r\n| Column  | Type           |\r\n| ------- | -------------- |\r\n| user_id | int64          |\r\n| date    | datetime64[ns] |\r\n| post_id | int64          |\r\n| action  | object         |\r\n| details | object         |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview user_actions</summary>\r\n\r\n---\r\n\r\n|user\\_id|date|post\\_id|action|details|\r\n|---|---|---|---|---|\r\n|302|2024-01-17|5301|share||\r\n|211|2024-01-16|5210|like||\r\n|107|2024-01-15|5106|comment|interesting|\r\n|208|2024-01-16|5207|like||\r\n|513|2024-01-19|5512|like||\r\n|214|2024-01-16|5213|comment|agree|\r\n|415|2024-01-18|5414|share||\r\n|102|2024-01-15|5101|share||\r\n|215|2024-01-16|5214|share||\r\n|515|2024-01-19|5514|share||\r\n|102|2024-01-15|5001|report|spam|\r\n|106|2024-01-15|5105|share||\r\n|105|2024-01-15|5104|like||\r\n|510|2024-01-19|5043|report|spam|\r\n|115|2024-01-15|5114|like||\r\n|213|2024-01-16|5212|like||\r\n|402|2024-01-18|5401|share||\r\n|502|2024-01-19|5037|report|spam|\r\n|101|2024-01-15|5100|like||\r\n|410|2024-01-18|5034|report|spam|\r\n|202|2024-01-16|5201|share||\r\n|309|2024-01-17|5308|like||\r\n|204|2024-01-16|5203|like||\r\n|104|2024-01-15|5103|like||\r\n|108|2024-01-15|5107|like||\r\n|401|2024-01-18|5400|like||\r\n|505|2024-01-19|5039|report|spam|\r\n|503|2024-01-19|5502|comment|brilliant|\r\n|101|2024-01-15|5001|report|spam|\r\n|203|2024-01-16|5202|comment|awesome|\r\n|209|2024-01-16|5208|share||\r\n|201|2024-01-16|5200|like||\r\n|512|2024-01-19|5511|share||\r\n|504|2024-01-19|5503|like||\r\n|107|2024-01-15|5004|report|inappropriate|\r\n|216|2024-01-16|5215|like||\r\n|109|2024-01-15|5108|share||\r\n|316|2024-01-17|5315|like||\r\n|502|2024-01-19|5501|share||\r\n|404|2024-01-18|5403|like||\r\n|314|2024-01-17|5313|like||\r\n|501|2024-01-19|5037|report|inappropriate|\r\n|207|2024-01-16|5015|report|violence|\r\n|508|2024-01-19|5041|report|spam|\r\n|411|2024-01-18|5410|like||\r\n|508|2024-01-19|5507|like||\r\n|511|2024-01-19|5510|like||\r\n|210|2024-01-16|5209|comment|nice work|\r\n|408|2024-01-18|5032|report|spam|\r\n|518|2024-01-19|5517|like||\r\n|412|2024-01-18|5411|share||\r\n|307|2024-01-17|5306|like||\r\n|105|2024-01-15|5002|report|violence|\r\n|407|2024-01-18|5031|report|violence|\r\n|509|2024-01-19|5508|share||\r\n|505|2024-01-19|5504|share||\r\n|519|2024-01-19|5518|comment|totally agree|\r\n|407|2024-01-18|5406|comment|true|\r\n|212|2024-01-16|5211|share||\r\n|310|2024-01-17|5309|comment|wow|\r\n|206|2024-01-16|5205|like||\r\n|312|2024-01-17|5311|share||\r\n|404|2024-01-18|5028|report|violence|\r\n|203|2024-01-16|5012|report|spam|\r\n|113|2024-01-15|5112|like||\r\n|111|2024-01-15|5110|like||\r\n|204|2024-01-16|5013|report|spam|\r\n|315|2024-01-17|5314|share||\r\n|406|2024-01-18|5030|report|spam|\r\n|207|2024-01-16|5206|comment|helpful|\r\n|506|2024-01-19|5039|report|inappropriate|\r\n|511|2024-01-19|5044|report|violence|\r\n|512|2024-01-19|5045|report|spam|\r\n|304|2024-01-17|5303|like||\r\n|406|2024-01-18|5405|like||\r\n|201|2024-01-16|5011|report|inappropriate|\r\n|301|2024-01-17|5300|like||\r\n|208|2024-01-16|5016|report|spam|\r\n|402|2024-01-18|5027|report|spam|\r\n|106|2024-01-15|5003|report|spam|\r\n|409|2024-01-18|5408|share||\r\n|110|2024-01-15|5109|comment|thanks for sharing|\r\n|408|2024-01-18|5407|like||\r\n|405|2024-01-18|5029|report|inappropriate|\r\n|202|2024-01-16|5011|report|violence|\r\n|206|2024-01-16|5014|report|inappropriate|\r\n|516|2024-01-19|5515|like||\r\n|311|2024-01-17|5310|like||\r\n|313|2024-01-17|5312|comment|amazing|\r\n|501|2024-01-19|5500|like||\r\n|506|2024-01-19|5505|like||\r\n|405|2024-01-18|5404|share||\r\n|510|2024-01-19|5509|comment|well said|\r\n|308|2024-01-17|5307|share||\r\n|507|2024-01-19|5506|comment|inspiring|\r\n|503|2024-01-19|5038|report|violence|\r\n|103|2024-01-15|5001|report|inappropriate|\r\n|205|2024-01-16|5013|report|spam|\r\n|112|2024-01-15|5111|share||\r\n|108|2024-01-15|5005|report|spam|\r\n|303|2024-01-17|5302|comment|cool|\r\n|401|2024-01-18|5027|report|spam|\r\n|410|2024-01-18|5409|comment|exactly|\r\n|104|2024-01-15|5002|report|violence|\r\n|507|2024-01-19|5040|report|violence|\r\n|409|2024-01-18|5033|report|inappropriate|\r\n|403|2024-01-18|5402|comment|good point|\r\n|414|2024-01-18|5413|comment|yes|\r\n|114|2024-01-15|5113|comment|love this|\r\n|413|2024-01-18|5412|like||\r\n|205|2024-01-16|5204|share||\r\n|306|2024-01-17|5305|comment|nice|\r\n|403|2024-01-18|5027|report|spam|\r\n|103|2024-01-15|5102|comment|great post|\r\n|305|2024-01-17|5304|share||\r\n|509|2024-01-19|5042|report|inappropriate|\r\n|517|2024-01-19|5516|share||\r\n|504|2024-01-19|5039|report|spam|\r\n|514|2024-01-19|5513|comment|perfect|\r\n|520|2024-01-19|5519|like||\r\n\r\n\r\n---\r\n\r\n</details>\r\n\r\n**post_removals**\r\n\r\n| Column       | Type           |\r\n| ------------ | -------------- |\r\n| post_id      | int64          |\r\n| removal_date | datetime64[ns] |\r\n| reason       | object         |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview post_removals</summary>\r\n\r\n---\r\n\r\n|post\\_id|removal\\_date|reason|\r\n|---|---|---|\r\n|5001|2024-01-15|confirmed spam|\r\n|5027|2024-01-18|confirmed spam|\r\n|5039|2024-01-19|confirmed spam|\r\n|5030|2024-01-18|spam content|\r\n|5002|2024-01-15|violence violation|\r\n|5037|2024-01-19|inappropriate material|\r\n|5013|2024-01-16|spam advertisement|\r\n|5011|2024-01-16|inappropriate content|\r\n\r\n\r\n---\r\n\r\n</details>\r\n\r\n**Requirements**\r\n\r\n- Only consider rows where `action` is \"report\" from user_actions\r\n- Count unique reported posts per day (multiple reports of the same post count once)\r\n- Count only posts removed on the same day they were reported\r\n- If a day has reported posts but no removals, show 0 removed posts and a 0 ratio\r\n- Round removal_ratio to 2 decimal places\r\n- Output one row per date that has reported posts\r\n- Use the provided DataFrames as-is, do not modify or reconstruct the datasets\r\n\r\n**Returns**\r\n\r\n- `pandas.DataFrame` with columns: `date`, `reported_posts`, `removed_posts`, `removal_ratio`\r\n\r\n**Expected Output**\r\n\r\n| date       | reported\\_posts | removed\\_posts | removal_ratio |\r\n| ---------- | -------------- | ------------- | ------------- |\r\n| 2024-01-15 | 5              | 2             | 0.40          |\r\n| 2024-01-16 | 6              | 2             | 0.33          |\r\n| 2024-01-18 | 8              | 2             | 0.25          |\r\n| 2024-01-19 | 9              | 2             | 0.22          |",
+  "short_text": "Daily Post Removal Ratio",
+  "difficulty": "EASY",
+  "function_name": "daily_removal_ratio",
+  "param_names": [
+    "user_actions",
+    "post_removals"
+  ],
+  "starter_code": "import pandas as pd\r\n\r\ndef daily_removal_ratio(user_actions, post_removals):\r\n    \"\"\"\r\n    Calculate the daily post removal ratio: posts removed on a day\r\n    divided by unique posts reported on that day.\r\n    \"\"\"\r\n    # Your code here\r\n    return",
+  "solution_code": "import pandas as pd\ndef daily_removal_ratio(user_actions, post_removals):\n    ua = user_actions.copy(); ua[\"date\"] = pd.to_datetime(ua[\"date\"])\n    pr = post_removals.copy(); pr[\"removal_date\"] = pd.to_datetime(pr[\"removal_date\"])\n    reports = ua[ua[\"action\"] == \"report\"]\n    rep = reports.groupby(\"date\")[\"post_id\"].nunique().reset_index(name=\"reported_posts\")\n    pairs = reports[[\"date\", \"post_id\"]].drop_duplicates()\n    merged = pairs.merge(pr, left_on=[\"date\", \"post_id\"], right_on=[\"removal_date\", \"post_id\"])\n    removed = merged.groupby(\"date\")[\"post_id\"].nunique().reset_index(name=\"removed_posts\")\n    res = rep.merge(removed, on=\"date\", how=\"left\")\n    res[\"removed_posts\"] = res[\"removed_posts\"].fillna(0).astype(int)\n    res[\"removal_ratio\"] = (res[\"removed_posts\"] / res[\"reported_posts\"]).round(2)\n    return res.sort_values(\"date\").reset_index(drop=True)",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "pandas",
+  "test_definitions": [
+    {
+      "inputs": {
+        "user_actions": [
+          {
+            "user_id": 302,
+            "date": "2024-01-17",
+            "post_id": 5301,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 211,
+            "date": "2024-01-16",
+            "post_id": 5210,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 107,
+            "date": "2024-01-15",
+            "post_id": 5106,
+            "action": "comment",
+            "details": "interesting"
+          },
+          {
+            "user_id": 208,
+            "date": "2024-01-16",
+            "post_id": 5207,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 513,
+            "date": "2024-01-19",
+            "post_id": 5512,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 214,
+            "date": "2024-01-16",
+            "post_id": 5213,
+            "action": "comment",
+            "details": "agree"
+          },
+          {
+            "user_id": 415,
+            "date": "2024-01-18",
+            "post_id": 5414,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 102,
+            "date": "2024-01-15",
+            "post_id": 5101,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 215,
+            "date": "2024-01-16",
+            "post_id": 5214,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 515,
+            "date": "2024-01-19",
+            "post_id": 5514,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 102,
+            "date": "2024-01-15",
+            "post_id": 5001,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 106,
+            "date": "2024-01-15",
+            "post_id": 5105,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 105,
+            "date": "2024-01-15",
+            "post_id": 5104,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 510,
+            "date": "2024-01-19",
+            "post_id": 5043,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 115,
+            "date": "2024-01-15",
+            "post_id": 5114,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 213,
+            "date": "2024-01-16",
+            "post_id": 5212,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 402,
+            "date": "2024-01-18",
+            "post_id": 5401,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 502,
+            "date": "2024-01-19",
+            "post_id": 5037,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 101,
+            "date": "2024-01-15",
+            "post_id": 5100,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 410,
+            "date": "2024-01-18",
+            "post_id": 5034,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 202,
+            "date": "2024-01-16",
+            "post_id": 5201,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 309,
+            "date": "2024-01-17",
+            "post_id": 5308,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 204,
+            "date": "2024-01-16",
+            "post_id": 5203,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 104,
+            "date": "2024-01-15",
+            "post_id": 5103,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 108,
+            "date": "2024-01-15",
+            "post_id": 5107,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 401,
+            "date": "2024-01-18",
+            "post_id": 5400,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 505,
+            "date": "2024-01-19",
+            "post_id": 5039,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 503,
+            "date": "2024-01-19",
+            "post_id": 5502,
+            "action": "comment",
+            "details": "brilliant"
+          },
+          {
+            "user_id": 101,
+            "date": "2024-01-15",
+            "post_id": 5001,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 203,
+            "date": "2024-01-16",
+            "post_id": 5202,
+            "action": "comment",
+            "details": "awesome"
+          },
+          {
+            "user_id": 209,
+            "date": "2024-01-16",
+            "post_id": 5208,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 201,
+            "date": "2024-01-16",
+            "post_id": 5200,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 512,
+            "date": "2024-01-19",
+            "post_id": 5511,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 504,
+            "date": "2024-01-19",
+            "post_id": 5503,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 107,
+            "date": "2024-01-15",
+            "post_id": 5004,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 216,
+            "date": "2024-01-16",
+            "post_id": 5215,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 109,
+            "date": "2024-01-15",
+            "post_id": 5108,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 316,
+            "date": "2024-01-17",
+            "post_id": 5315,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 502,
+            "date": "2024-01-19",
+            "post_id": 5501,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 404,
+            "date": "2024-01-18",
+            "post_id": 5403,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 314,
+            "date": "2024-01-17",
+            "post_id": 5313,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 501,
+            "date": "2024-01-19",
+            "post_id": 5037,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 207,
+            "date": "2024-01-16",
+            "post_id": 5015,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 508,
+            "date": "2024-01-19",
+            "post_id": 5041,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 411,
+            "date": "2024-01-18",
+            "post_id": 5410,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 508,
+            "date": "2024-01-19",
+            "post_id": 5507,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 511,
+            "date": "2024-01-19",
+            "post_id": 5510,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 210,
+            "date": "2024-01-16",
+            "post_id": 5209,
+            "action": "comment",
+            "details": "nice work"
+          },
+          {
+            "user_id": 408,
+            "date": "2024-01-18",
+            "post_id": 5032,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 518,
+            "date": "2024-01-19",
+            "post_id": 5517,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 412,
+            "date": "2024-01-18",
+            "post_id": 5411,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 307,
+            "date": "2024-01-17",
+            "post_id": 5306,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 105,
+            "date": "2024-01-15",
+            "post_id": 5002,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 407,
+            "date": "2024-01-18",
+            "post_id": 5031,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 509,
+            "date": "2024-01-19",
+            "post_id": 5508,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 505,
+            "date": "2024-01-19",
+            "post_id": 5504,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 519,
+            "date": "2024-01-19",
+            "post_id": 5518,
+            "action": "comment",
+            "details": "totally agree"
+          },
+          {
+            "user_id": 407,
+            "date": "2024-01-18",
+            "post_id": 5406,
+            "action": "comment",
+            "details": "true"
+          },
+          {
+            "user_id": 212,
+            "date": "2024-01-16",
+            "post_id": 5211,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 310,
+            "date": "2024-01-17",
+            "post_id": 5309,
+            "action": "comment",
+            "details": "wow"
+          },
+          {
+            "user_id": 206,
+            "date": "2024-01-16",
+            "post_id": 5205,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 312,
+            "date": "2024-01-17",
+            "post_id": 5311,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 404,
+            "date": "2024-01-18",
+            "post_id": 5028,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 203,
+            "date": "2024-01-16",
+            "post_id": 5012,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 113,
+            "date": "2024-01-15",
+            "post_id": 5112,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 111,
+            "date": "2024-01-15",
+            "post_id": 5110,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 204,
+            "date": "2024-01-16",
+            "post_id": 5013,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 315,
+            "date": "2024-01-17",
+            "post_id": 5314,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 406,
+            "date": "2024-01-18",
+            "post_id": 5030,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 207,
+            "date": "2024-01-16",
+            "post_id": 5206,
+            "action": "comment",
+            "details": "helpful"
+          },
+          {
+            "user_id": 506,
+            "date": "2024-01-19",
+            "post_id": 5039,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 511,
+            "date": "2024-01-19",
+            "post_id": 5044,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 512,
+            "date": "2024-01-19",
+            "post_id": 5045,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 304,
+            "date": "2024-01-17",
+            "post_id": 5303,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 406,
+            "date": "2024-01-18",
+            "post_id": 5405,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 201,
+            "date": "2024-01-16",
+            "post_id": 5011,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 301,
+            "date": "2024-01-17",
+            "post_id": 5300,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 208,
+            "date": "2024-01-16",
+            "post_id": 5016,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 402,
+            "date": "2024-01-18",
+            "post_id": 5027,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 106,
+            "date": "2024-01-15",
+            "post_id": 5003,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 409,
+            "date": "2024-01-18",
+            "post_id": 5408,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 110,
+            "date": "2024-01-15",
+            "post_id": 5109,
+            "action": "comment",
+            "details": "thanks for sharing"
+          },
+          {
+            "user_id": 408,
+            "date": "2024-01-18",
+            "post_id": 5407,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 405,
+            "date": "2024-01-18",
+            "post_id": 5029,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 202,
+            "date": "2024-01-16",
+            "post_id": 5011,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 206,
+            "date": "2024-01-16",
+            "post_id": 5014,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 516,
+            "date": "2024-01-19",
+            "post_id": 5515,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 311,
+            "date": "2024-01-17",
+            "post_id": 5310,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 313,
+            "date": "2024-01-17",
+            "post_id": 5312,
+            "action": "comment",
+            "details": "amazing"
+          },
+          {
+            "user_id": 501,
+            "date": "2024-01-19",
+            "post_id": 5500,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 506,
+            "date": "2024-01-19",
+            "post_id": 5505,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 405,
+            "date": "2024-01-18",
+            "post_id": 5404,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 510,
+            "date": "2024-01-19",
+            "post_id": 5509,
+            "action": "comment",
+            "details": "well said"
+          },
+          {
+            "user_id": 308,
+            "date": "2024-01-17",
+            "post_id": 5307,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 507,
+            "date": "2024-01-19",
+            "post_id": 5506,
+            "action": "comment",
+            "details": "inspiring"
+          },
+          {
+            "user_id": 503,
+            "date": "2024-01-19",
+            "post_id": 5038,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 103,
+            "date": "2024-01-15",
+            "post_id": 5001,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 205,
+            "date": "2024-01-16",
+            "post_id": 5013,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 112,
+            "date": "2024-01-15",
+            "post_id": 5111,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 108,
+            "date": "2024-01-15",
+            "post_id": 5005,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 303,
+            "date": "2024-01-17",
+            "post_id": 5302,
+            "action": "comment",
+            "details": "cool"
+          },
+          {
+            "user_id": 401,
+            "date": "2024-01-18",
+            "post_id": 5027,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 410,
+            "date": "2024-01-18",
+            "post_id": 5409,
+            "action": "comment",
+            "details": "exactly"
+          },
+          {
+            "user_id": 104,
+            "date": "2024-01-15",
+            "post_id": 5002,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 507,
+            "date": "2024-01-19",
+            "post_id": 5040,
+            "action": "report",
+            "details": "violence"
+          },
+          {
+            "user_id": 409,
+            "date": "2024-01-18",
+            "post_id": 5033,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 403,
+            "date": "2024-01-18",
+            "post_id": 5402,
+            "action": "comment",
+            "details": "good point"
+          },
+          {
+            "user_id": 414,
+            "date": "2024-01-18",
+            "post_id": 5413,
+            "action": "comment",
+            "details": "yes"
+          },
+          {
+            "user_id": 114,
+            "date": "2024-01-15",
+            "post_id": 5113,
+            "action": "comment",
+            "details": "love this"
+          },
+          {
+            "user_id": 413,
+            "date": "2024-01-18",
+            "post_id": 5412,
+            "action": "like",
+            "details": ""
+          },
+          {
+            "user_id": 205,
+            "date": "2024-01-16",
+            "post_id": 5204,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 306,
+            "date": "2024-01-17",
+            "post_id": 5305,
+            "action": "comment",
+            "details": "nice"
+          },
+          {
+            "user_id": 403,
+            "date": "2024-01-18",
+            "post_id": 5027,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 103,
+            "date": "2024-01-15",
+            "post_id": 5102,
+            "action": "comment",
+            "details": "great post"
+          },
+          {
+            "user_id": 305,
+            "date": "2024-01-17",
+            "post_id": 5304,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 509,
+            "date": "2024-01-19",
+            "post_id": 5042,
+            "action": "report",
+            "details": "inappropriate"
+          },
+          {
+            "user_id": 517,
+            "date": "2024-01-19",
+            "post_id": 5516,
+            "action": "share",
+            "details": ""
+          },
+          {
+            "user_id": 504,
+            "date": "2024-01-19",
+            "post_id": 5039,
+            "action": "report",
+            "details": "spam"
+          },
+          {
+            "user_id": 514,
+            "date": "2024-01-19",
+            "post_id": 5513,
+            "action": "comment",
+            "details": "perfect"
+          },
+          {
+            "user_id": 520,
+            "date": "2024-01-19",
+            "post_id": 5519,
+            "action": "like",
+            "details": ""
+          }
+        ],
+        "post_removals": [
+          {
+            "post_id": 5001,
+            "removal_date": "2024-01-15",
+            "reason": "confirmed spam"
+          },
+          {
+            "post_id": 5027,
+            "removal_date": "2024-01-18",
+            "reason": "confirmed spam"
+          },
+          {
+            "post_id": 5039,
+            "removal_date": "2024-01-19",
+            "reason": "confirmed spam"
+          },
+          {
+            "post_id": 5030,
+            "removal_date": "2024-01-18",
+            "reason": "spam content"
+          },
+          {
+            "post_id": 5002,
+            "removal_date": "2024-01-15",
+            "reason": "violence violation"
+          },
+          {
+            "post_id": 5037,
+            "removal_date": "2024-01-19",
+            "reason": "inappropriate material"
+          },
+          {
+            "post_id": 5013,
+            "removal_date": "2024-01-16",
+            "reason": "spam advertisement"
+          },
+          {
+            "post_id": 5011,
+            "removal_date": "2024-01-16",
+            "reason": "inappropriate content"
+          }
+        ]
+      },
+      "is_hidden": false,
+      "weightage": 100
+    }
+  ]
+}

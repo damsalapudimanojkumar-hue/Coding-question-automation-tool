@@ -1,0 +1,307 @@
+{
+  "question_text": "You are given a dataset that records scores submitted by team members for different projects. Each row represents a score given by a specific team member on a particular date.\r\n\r\nCompute the **average score for each project**, but only include projects that have been scored by **more than one team member**.\r\n\r\n**Input DataFrame:** `project_data`\r\n\r\n| Column Name     | Type           |\r\n| --------------- | -------------- |\r\n| project\\_id      | int64          |\r\n| team\\_member\\_id  | int64          |\r\n| score           | int64          |\r\n| date            | datetime64[ns] |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview Input Data</summary>\r\n\r\n---\r\n\r\n|project\\_id|team\\_member\\_id|score|date|\r\n|---|---|---|---|\r\n|104|6|0|2024-07-19|\r\n|103|1|90|2024-09-02|\r\n|103|6|6|2024-08-23|\r\n|101|1|5|2024-07-25|\r\n|104|1|2|2024-09-13|\r\n|103|2|95|2024-08-29|\r\n|102|4|2|2024-10-07|\r\n|105|6|37|2024-08-30|\r\n|102|3|3|2024-08-26|\r\n|103|6|4|2024-10-14|\r\n|104|2|6|2024-09-23|\r\n|104|4|8|2024-08-17|\r\n|101|6|6|2024-10-14|\r\n|103|4|4|2024-08-23|\r\n|102|4|2|2024-08-24|\r\n|103|4|93|2024-08-14|\r\n|105|6|14|2024-10-13|\r\n|102|1|2|2024-10-12|\r\n|103|2|100|2024-10-02|\r\n|104|1|10|2024-07-27|\r\n|107|11|9|2024-11-02|\r\n|104|6|7|2024-10-15|\r\n|104|6|6|2024-10-07|\r\n|104|4|8|2024-09-17|\r\n|104|3|7|2024-10-04|\r\n|104|3|4|2024-09-05|\r\n|102|1|1|2024-08-17|\r\n|104|3|6|2024-08-04|\r\n|102|6|4|2024-08-17|\r\n|103|3|87|2024-08-15|\r\n|104|1|7|2024-09-11|\r\n|103|3|72|2024-07-30|\r\n|101|2|5|2024-10-14|\r\n|101|6|5|2024-09-13|\r\n|106|10|7|2024-11-01|\r\n|102|6|3|2024-08-22|\r\n|102|5|4|2024-08-06|\r\n|103|1|34|2024-08-03|\r\n|101|2|8|2024-09-22|\r\n|105|1|5|2024-07-18|\r\n|105|6|1|2024-07-09|\r\n|104|2|0|2024-08-29|\r\n|102|6|3|2024-09-04|\r\n|102|5|4|2024-07-16|\r\n|103|3|40|2024-07-23|\r\n|101|2|3|2024-09-24|\r\n|102|1|5|2024-08-04|\r\n\r\n\r\n\r\n</details>\r\n\r\n**Requirements**\r\n\r\n- Group scores by project\r\n- Only include projects scored by more than one **unique** team member\r\n- Calculate the average of all scores for each qualifying project\r\n- Round average_score to 2 decimal places\r\n- Use the provided `project_data` DataFrame as-is, do not modify or reconstruct the dataset\r\n\r\n**Returns**\r\n\r\n- `pandas.DataFrame` with columns:\r\n  - `project_id`: Unique identifier for each project\r\n  - `average_score`: Average of all scores submitted for that project",
+  "short_text": "Average Score for Multi-Member Projects",
+  "difficulty": "EASY",
+  "function_name": "avg_score_multi_member_projects",
+  "param_names": [
+    "project_data"
+  ],
+  "starter_code": "import pandas as pd\r\n\r\ndef avg_score_multi_member_projects(project_data):\r\n    \"\"\"\r\n    Compute the average score for each project, but only include\r\n    projects that have been scored by more than one team member.\r\n    \"\"\"\r\n    # Your code here\r\n    return",
+  "solution_code": "import pandas as pd\ndef avg_score_multi_member_projects(project_data):\n    counts = project_data.groupby(\"project_id\")[\"team_member_id\"].nunique()\n    keep = counts[counts > 1].index\n    sub = project_data[project_data[\"project_id\"].isin(keep)]\n    res = sub.groupby(\"project_id\")[\"score\"].mean().round(2).reset_index()\n    res.columns = [\"project_id\", \"average_score\"]\n    return res",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "pandas",
+  "test_definitions": [
+    {
+      "inputs": {
+        "project_data": [
+          {
+            "project_id": 104,
+            "team_member_id": 6,
+            "score": 0,
+            "date": "2024-07-19"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 1,
+            "score": 90,
+            "date": "2024-09-02"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 6,
+            "score": 6,
+            "date": "2024-08-23"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 1,
+            "score": 5,
+            "date": "2024-07-25"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 1,
+            "score": 2,
+            "date": "2024-09-13"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 2,
+            "score": 95,
+            "date": "2024-08-29"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 4,
+            "score": 2,
+            "date": "2024-10-07"
+          },
+          {
+            "project_id": 105,
+            "team_member_id": 6,
+            "score": 37,
+            "date": "2024-08-30"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 3,
+            "score": 3,
+            "date": "2024-08-26"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 6,
+            "score": 4,
+            "date": "2024-10-14"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 2,
+            "score": 6,
+            "date": "2024-09-23"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 4,
+            "score": 8,
+            "date": "2024-08-17"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 6,
+            "score": 6,
+            "date": "2024-10-14"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 4,
+            "score": 4,
+            "date": "2024-08-23"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 4,
+            "score": 2,
+            "date": "2024-08-24"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 4,
+            "score": 93,
+            "date": "2024-08-14"
+          },
+          {
+            "project_id": 105,
+            "team_member_id": 6,
+            "score": 14,
+            "date": "2024-10-13"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 1,
+            "score": 2,
+            "date": "2024-10-12"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 2,
+            "score": 100,
+            "date": "2024-10-02"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 1,
+            "score": 10,
+            "date": "2024-07-27"
+          },
+          {
+            "project_id": 107,
+            "team_member_id": 11,
+            "score": 9,
+            "date": "2024-11-02"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 6,
+            "score": 7,
+            "date": "2024-10-15"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 6,
+            "score": 6,
+            "date": "2024-10-07"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 4,
+            "score": 8,
+            "date": "2024-09-17"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 3,
+            "score": 7,
+            "date": "2024-10-04"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 3,
+            "score": 4,
+            "date": "2024-09-05"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 1,
+            "score": 1,
+            "date": "2024-08-17"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 3,
+            "score": 6,
+            "date": "2024-08-04"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 6,
+            "score": 4,
+            "date": "2024-08-17"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 3,
+            "score": 87,
+            "date": "2024-08-15"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 1,
+            "score": 7,
+            "date": "2024-09-11"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 3,
+            "score": 72,
+            "date": "2024-07-30"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 2,
+            "score": 5,
+            "date": "2024-10-14"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 6,
+            "score": 5,
+            "date": "2024-09-13"
+          },
+          {
+            "project_id": 106,
+            "team_member_id": 10,
+            "score": 7,
+            "date": "2024-11-01"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 6,
+            "score": 3,
+            "date": "2024-08-22"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 5,
+            "score": 4,
+            "date": "2024-08-06"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 1,
+            "score": 34,
+            "date": "2024-08-03"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 2,
+            "score": 8,
+            "date": "2024-09-22"
+          },
+          {
+            "project_id": 105,
+            "team_member_id": 1,
+            "score": 5,
+            "date": "2024-07-18"
+          },
+          {
+            "project_id": 105,
+            "team_member_id": 6,
+            "score": 1,
+            "date": "2024-07-09"
+          },
+          {
+            "project_id": 104,
+            "team_member_id": 2,
+            "score": 0,
+            "date": "2024-08-29"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 6,
+            "score": 3,
+            "date": "2024-09-04"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 5,
+            "score": 4,
+            "date": "2024-07-16"
+          },
+          {
+            "project_id": 103,
+            "team_member_id": 3,
+            "score": 40,
+            "date": "2024-07-23"
+          },
+          {
+            "project_id": 101,
+            "team_member_id": 2,
+            "score": 3,
+            "date": "2024-09-24"
+          },
+          {
+            "project_id": 102,
+            "team_member_id": 1,
+            "score": 5,
+            "date": "2024-08-04"
+          }
+        ]
+      },
+      "is_hidden": false,
+      "weightage": 100
+    }
+  ]
+}

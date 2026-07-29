@@ -62,6 +62,81 @@ def _render_draft(plan, statement):
     print("-" * 60)
 
 
+def _render_codeeditor_preview(config, problems, phase="tests", cases=None):
+    text = config.get("rephrased_question_text") or config.get("question_text", "")
+    if phase == "problem":
+        print("\n" + "=" * 60)
+        print("CODE-EDITOR — PROBLEM (review 1 of 2)")
+        print("=" * 60)
+        print(f"Title    : {config.get('rephrased_short_text') or config.get('short_text', '')}")
+        print(f"Function : {config.get('function_name', '')}"
+              f"({', '.join(config.get('param_names', []))})")
+        print(f"Library  : {config.get('library', 'numpy')}   "
+              f"Difficulty: {config.get('difficulty', 'EASY')}")
+        print("-" * 60)
+        print(text.strip())
+        print("-" * 60)
+        print("Reference solution:")
+        print(config.get("solution_code", "").strip())
+    else:
+        tds = config.get("test_definitions") or []
+        visible = sum(1 for t in tds if not t.get("is_hidden", False))
+        print("\n" + "=" * 60)
+        print("CODE-EDITOR — TEST CASES (review 2 of 2)")
+        print("=" * 60)
+        print(f"Function : {config.get('function_name', '')}"
+              f"({', '.join(config.get('param_names', []))})")
+        print(f"Tests    : {len(tds)}  ({visible} visible, {len(tds) - visible} hidden)")
+        print("-" * 60)
+        if cases:
+            print("Test inputs -> computed outputs (from running the reference solution):")
+            for c in cases:
+                tag = "hidden " if c.get("is_hidden") else "VISIBLE"
+                print(f"  #{c['order']:>2} [{tag}] w={c.get('weightage', 10):>3}  "
+                      f"{c['input']}  ->  {c['output']}")
+        else:
+            print("Test inputs (outputs will be computed at generate time):")
+            for i, t in enumerate(tds, 1):
+                tag = "hidden " if t.get("is_hidden") else "VISIBLE"
+                print(f"  #{i:>2} [{tag}] w={t.get('weightage', 10):>3}  {t.get('inputs')}")
+    if problems:
+        print("-" * 60)
+        print("WARNINGS:")
+        for p in problems:
+            print(f"  - {p}")
+    print("=" * 60)
+
+
+def _render_codeeditor_candidates(candidates):
+    print("\n" + "=" * 60)
+    print(f"CODE-EDITOR — {len(candidates)} PROBLEM CANDIDATES (pick one)")
+    print("=" * 60)
+    for c in candidates:
+        qt = " ".join((c.get("question_text") or "").split())
+        print(f"\n[{c.get('index')}] {c.get('short_text','')}"
+              f"  ({c.get('function_name','')}, {c.get('difficulty','') or 'auto'})")
+        if c.get("focus"):
+            print("    what's different: " + c["focus"])
+        print("    " + textwrap.shorten(qt, width=220, placeholder=" ..."))
+        if c.get("problems"):
+            print("    warnings: " + "; ".join(c["problems"]))
+    print("\n" + "-" * 60)
+    print(f"[1-{len(candidates)}] pick   [R] regenerate all   or type revision notes")
+
+
+def _render_codeeditor_outputs(questions, path):
+    print("\n" + "=" * 60)
+    print("GENERATED — computed outputs (sanity-check against your formula)")
+    print("=" * 60)
+    for q in questions:
+        print(f"\n[{q.get('short_text', '')}]  {q.get('function_name', '')}")
+        for c in q.get("cases", []):
+            tag = "hidden " if c.get("is_hidden") else "VISIBLE"
+            print(f"  #{c['order']:>2} [{tag}]  {c['input']}  ->  {c['output']}")
+    print(f"\nDeliverable: {path}")
+    print("=" * 60)
+
+
 # ── terminal implementation (CLI parity) ───────────────────────────────────
 
 class TerminalIO:
@@ -72,12 +147,20 @@ class TerminalIO:
             _render_options(payload.get("options", []))
         elif kind == "draft":
             _render_draft(payload.get("plan", ""), payload.get("statement", ""))
-        elif kind in ("log", "research", "test_proposal", "notice"):
+        elif kind == "codeeditor_preview":
+            _render_codeeditor_preview(payload.get("config", {}), payload.get("problems", []),
+                                       phase=payload.get("phase", "tests"),
+                                       cases=payload.get("cases"))
+        elif kind == "codeeditor_candidates":
+            _render_codeeditor_candidates(payload.get("candidates", []))
+        elif kind == "codeeditor_outputs":
+            _render_codeeditor_outputs(payload.get("questions", []), payload.get("path", ""))
+        elif kind in ("log", "research", "test_proposal", "notice", "stage", "done"):
             text = payload.get("text", "")
             if text:
                 print(text)
-        # decorative kinds (stage, files, done) are no-ops in the terminal;
-        # the agents already print their own banners.
+        # decorative kinds (files) are no-ops in the terminal; the agents
+        # already print their own banners.
 
     def ask(self, spec):
         kind = spec.get("kind")
@@ -90,6 +173,13 @@ class TerminalIO:
             return input("\nYour choice [A/EP/ED/SD/B]: ").strip().upper()
         if kind == "eval_action":
             return input("\nYour choice [A/D/R]: ").strip().upper()
+        if kind == "codeeditor_review":
+            what = "problem" if spec.get("phase") == "problem" else "test cases"
+            return input(f"\n[{what}]  [A] approve   [R] regenerate fresh   "
+                         "or type revision notes: ").strip()
+        if kind == "codeeditor_pick":
+            return input("\nPick a candidate [1-{}], [R] regenerate all, or revision notes: "
+                         .format(spec.get("count", 1))).strip()
         if kind == "edit_dataset":
             # CLI has no rich panel; fall back to a freeform instruction.
             text = input("Describe dataset edit (or 'back' to cancel): ").strip()

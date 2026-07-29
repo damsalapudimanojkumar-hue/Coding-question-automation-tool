@@ -1,0 +1,25 @@
+{
+  "question_text": "Write a Python function that calculates the **Binary Cross-Entropy (BCE) Loss** between true binary labels and predicted probabilities. BCE is the standard loss function for binary classification problems.\n\nThe BCE formula is:\n\n![BCE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/BCE.png)\n\nThe function should handle numerical stability by clipping predicted probability values to avoid taking the logarithm of exactly 0 or 1.\n\n**Parameters**\n\n- `y_true` (list[int]): True binary labels (0 or 1)\n- `y_pred` (list[float]): Predicted probabilities (values between 0 and 1)\n- `epsilon` (float): Small value for numerical stability (default = 1e-15)\n\n**Returns**\n\n- float: The BCE loss value, rounded to four decimal places",
+  "short_text": "Binary Cross-Entropy Loss",
+  "difficulty": "EASY",
+  "function_name": "binary_cross_entropy",
+  "param_names": ["y_true", "y_pred"],
+  "starter_code": "import numpy as np\n\ndef binary_cross_entropy(y_true, y_pred, epsilon=1e-15):\n\t# Your code here\n\tpass",
+  "solution_code": "import numpy as np\ndef binary_cross_entropy(y_true, y_pred, epsilon=1e-15):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    y_pred = np.clip(y_pred, epsilon, 1 - epsilon)\n    loss = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))\n    return round(float(np.mean(loss)), 4)",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "numpy",
+  "test_definitions": [
+    {"inputs": {"y_true": [1, 0, 1, 0], "y_pred": [0.9, 0.1, 0.8, 0.2]}, "is_hidden": false, "weightage": 10},
+    {"inputs": {"y_true": [1, 1, 1], "y_pred": [1.0, 1.0, 1.0]}, "is_hidden": false, "weightage": 10},
+    {"inputs": {"y_true": [0, 0, 0], "y_pred": [0.0, 0.0, 0.0]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [1], "y_pred": [0.5]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [0], "y_pred": [0.5]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [1, 0], "y_pred": [0.01, 0.99]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [1, 0, 1, 0, 1], "y_pred": [0.99, 0.01, 0.95, 0.05, 0.9]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [0, 0, 0, 0], "y_pred": [0.5, 0.5, 0.5, 0.5]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [1, 1, 0, 0], "y_pred": [0.6, 0.7, 0.3, 0.4]}, "is_hidden": true, "weightage": 10},
+    {"inputs": {"y_true": [1, 0], "y_pred": [0.0, 1.0]}, "is_hidden": true, "weightage": 10}
+  ]
+}

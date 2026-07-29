@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from claude_client import call_claude_with_tools
 from naming import filename_instructions, asset_relnames, make_code
 from ui.session import TerminalIO
+from tracing import observe
 from tools.local_tools import ALL_TOOLS, tool_executor
 from prompts.evaluation_prompt import (
     EVALUATION_PHASE1_PROMPT,
@@ -206,6 +207,7 @@ def _finalize_question_json(workspace: str) -> str:
     return f"{question_id}.json"
 
 
+@observe(as_type="agent")
 def evaluation_designer_agent(state: dict, io=None) -> dict:
     """LangGraph node function for Agent 3."""
     io = io or TerminalIO()
@@ -221,6 +223,8 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
     wiki_examples = state.get("wiki_examples", "")
     code = state.get("assignment_code") or make_code(topic)
     filenames = filename_instructions(code)
+    curriculum = state.get("wiki_curriculum", "")
+    eval_styles = state.get("wiki_eval_styles", "")
 
     os.makedirs(workspace, exist_ok=True)
 
@@ -245,6 +249,8 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
             workspace=workspace,
             wiki_skill_context=wiki_skill_context,
             filenames=filenames,
+            curriculum=curriculum,
+            eval_styles=eval_styles,
         )
 
         if extra_feedback:

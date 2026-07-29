@@ -5,3 +5,5 @@ outputs/
 workspace/
 .venv/
 venv/
+*.zip
+

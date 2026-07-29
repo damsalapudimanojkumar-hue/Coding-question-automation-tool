@@ -1,0 +1,138 @@
+{
+  "question_text": "You are given two datasets containing user session activity and order transactions. Identify users who started a session and placed orders on the **same calendar day**, and compute their total orders and order value for that day.\r\n\r\n### Input DataFrames\r\n\r\n### sessions\r\n\r\n| Column Name  | Type           |\r\n|--------------|---------------|\r\n| session_id   | int64          |\r\n| user_id      | int64          |\r\n| session_date | datetime64[ns] |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview Input Data: sessions</summary>\r\n\r\n---\r\n\r\n| session\\_id | user\\_id | session\\_date |\r\n| ---------- | ------- | ------------ |\r\n| 1          | 1       | 2024-01-01   |\r\n| 2          | 2       | 2024-01-02   |\r\n| 3          | 3       | 2024-01-05   |\r\n| 4          | 3       | 2024-01-05   |\r\n| 5          | 4       | 2024-01-03   |\r\n| 6          | 4       | 2024-01-03   |\r\n| 7          | 5       | 2024-01-04   |\r\n| 8          | 5       | 2024-01-04   |\r\n| 9          | 3       | 2024-01-05   |\r\n| 10         | 5       | 2024-01-04   |\r\n\r\n\r\n---\r\n\r\n</details>\r\n\r\n### order_summary\r\n\r\n| Column Name | Type           |\r\n|-------------|---------------|\r\n| order_id    | int64          |\r\n| user_id     | int64          |\r\n| order_value | int64          |\r\n| order_date  | datetime64[ns] |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview Input Data: order_summary</summary>\r\n\r\n---\r\n\r\n| order\\_id | user\\_id | order\\_value | order\\_date |\r\n| -------- | ------- | ----------- | ---------- |\r\n| 1        | 1       | 152         | 2024-01-01 |\r\n| 2        | 2       | 485         | 2024-01-02 |\r\n| 3        | 3       | 398         | 2024-01-05 |\r\n| 4        | 3       | 320         | 2024-01-05 |\r\n| 5        | 4       | 156         | 2024-01-03 |\r\n| 6        | 4       | 121         | 2024-01-03 |\r\n| 7        | 5       | 238         | 2024-01-04 |\r\n| 8        | 5       | 70          | 2024-01-04 |\r\n| 9        | 3       | 152         | 2024-01-05 |\r\n| 10       | 5       | 171         | 2024-01-04 |\r\n\r\n\r\n---\r\n\r\n</details>\r\n\r\n### Requirements\r\n\r\n- Identify records where:\r\n  - A user has at least one session and at least one order on the **same calendar date**\r\n- Match records using:\r\n  - `user_id`\r\n  - `session_date = order_date`\r\n- For each `(user_id, session_date)` pair:\r\n  - Compute `total_orders` as the total number of orders placed on that day  \r\n  - Compute `total_order_value` as the sum of `order_value` for that day  \r\n- If a user has multiple sessions on the same day, ensure they are considered together (do not duplicate results)  \r\n- Use the provided DataFrames as-is, do not modify or reconstruct the datasets  \r\n\r\n### Returns\r\n\r\n- **pandas.DataFrame** with the following columns:\r\n  - `user_id`: Unique user identifier  \r\n  - `session_date`: Date of the session and corresponding orders  \r\n  - `total_orders`: Total number of orders placed on that day  \r\n  - `total_order_value`: Total value of orders placed on that day",
+  "short_text": "Same-Day Sessions and Orders",
+  "difficulty": "HARD",
+  "function_name": "same_day_sessions_orders",
+  "param_names": [
+    "sessions",
+    "order_summary"
+  ],
+  "starter_code": "import pandas as pd\n\ndef same_day_sessions_orders(sessions, order_summary):\n    \"\"\"\n    Identify users who started a session and placed orders on the same calendar day.\n    For each (user_id, session_date) pair, compute total_orders and total_order_value.\n    Returns a DataFrame with columns: user_id, session_date, total_orders, total_order_value.\n    \"\"\"\n    # Your code here\n    return",
+  "solution_code": "import pandas as pd\ndef same_day_sessions_orders(sessions, order_summary):\n    s = sessions.copy(); s[\"session_date\"] = pd.to_datetime(s[\"session_date\"])\n    o = order_summary.copy(); o[\"order_date\"] = pd.to_datetime(o[\"order_date\"])\n    sess_days = s[[\"user_id\", \"session_date\"]].drop_duplicates()\n    agg = o.groupby([\"user_id\", \"order_date\"]).agg(\n        total_orders=(\"order_id\", \"count\"),\n        total_order_value=(\"order_value\", \"sum\"),\n    ).reset_index().rename(columns={\"order_date\": \"session_date\"})\n    res = sess_days.merge(agg, on=[\"user_id\", \"session_date\"], how=\"inner\")\n    return res.sort_values([\"user_id\", \"session_date\"]).reset_index(drop=True)",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "pandas",
+  "test_definitions": [
+    {
+      "inputs": {
+        "sessions": [
+          {
+            "session_id": 1,
+            "user_id": 1,
+            "session_date": "2024-01-01"
+          },
+          {
+            "session_id": 2,
+            "user_id": 2,
+            "session_date": "2024-01-02"
+          },
+          {
+            "session_id": 3,
+            "user_id": 3,
+            "session_date": "2024-01-05"
+          },
+          {
+            "session_id": 4,
+            "user_id": 3,
+            "session_date": "2024-01-05"
+          },
+          {
+            "session_id": 5,
+            "user_id": 4,
+            "session_date": "2024-01-03"
+          },
+          {
+            "session_id": 6,
+            "user_id": 4,
+            "session_date": "2024-01-03"
+          },
+          {
+            "session_id": 7,
+            "user_id": 5,
+            "session_date": "2024-01-04"
+          },
+          {
+            "session_id": 8,
+            "user_id": 5,
+            "session_date": "2024-01-04"
+          },
+          {
+            "session_id": 9,
+            "user_id": 3,
+            "session_date": "2024-01-05"
+          },
+          {
+            "session_id": 10,
+            "user_id": 5,
+            "session_date": "2024-01-04"
+          }
+        ],
+        "order_summary": [
+          {
+            "order_id": 1,
+            "user_id": 1,
+            "order_value": 152,
+            "order_date": "2024-01-01"
+          },
+          {
+            "order_id": 2,
+            "user_id": 2,
+            "order_value": 485,
+            "order_date": "2024-01-02"
+          },
+          {
+            "order_id": 3,
+            "user_id": 3,
+            "order_value": 398,
+            "order_date": "2024-01-05"
+          },
+          {
+            "order_id": 4,
+            "user_id": 3,
+            "order_value": 320,
+            "order_date": "2024-01-05"
+          },
+          {
+            "order_id": 5,
+            "user_id": 4,
+            "order_value": 156,
+            "order_date": "2024-01-03"
+          },
+          {
+            "order_id": 6,
+            "user_id": 4,
+            "order_value": 121,
+            "order_date": "2024-01-03"
+          },
+          {
+            "order_id": 7,
+            "user_id": 5,
+            "order_value": 238,
+            "order_date": "2024-01-04"
+          },
+          {
+            "order_id": 8,
+            "user_id": 5,
+            "order_value": 70,
+            "order_date": "2024-01-04"
+          },
+          {
+            "order_id": 9,
+            "user_id": 3,
+            "order_value": 152,
+            "order_date": "2024-01-05"
+          },
+          {
+            "order_id": 10,
+            "user_id": 5,
+            "order_value": 171,
+            "order_date": "2024-01-04"
+          }
+        ]
+      },
+      "is_hidden": false,
+      "weightage": 100
+    }
+  ]
+}

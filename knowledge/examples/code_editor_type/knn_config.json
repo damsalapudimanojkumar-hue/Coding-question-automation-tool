@@ -1,0 +1,309 @@
+{
+  "question_text": "Write a Python function that implements **K-Nearest Neighbors (KNN)** to find the k closest points to a given query point using Euclidean distance.\r\n\r\nGiven a list of points in n-dimensional space and a query point, find the k nearest neighbors.\r\n\r\nYou can solve this question using NumPy or scikit-learn.\r\n\r\n**Parameters**\r\n\r\n- `points` (list[list[float]]): List of points in n-dimensional space\r\n- `query_point` (list[float]): The reference point to find neighbors for\r\n- `k` (int): Number of nearest neighbors to return\r\n\r\n**Requirements**\r\n\r\n- Calculate the Euclidean distance from the query point to each point in the list\r\n- Return the k points with the smallest distances as a list of lists\r\n- When distances are equal (ties), maintain the original order from the input list\r\n\r\n**Returns**\r\n\r\n- list[list[float]]: The k nearest points, ordered by distance (nearest first)",
+  "short_text": "K-Nearest Neighbors",
+  "difficulty": "MEDIUM",
+  "function_name": "knn",
+  "param_names": [
+    "points",
+    "query_point",
+    "k"
+  ],
+  "starter_code": "import numpy as np\r\nfrom sklearn.neighbors import NearestNeighbors\r\n\r\ndef knn(points, query_point, k):\r\n    # Your code here\r\n    pass",
+  "solution_code": "import numpy as np\n\ndef knn(points, query_point, k):\n    pts = np.array(points, dtype=float)\n    query = np.array(query_point, dtype=float)\n    distances = np.sqrt(((pts - query) ** 2).sum(axis=1))\n    order = np.argsort(distances, kind=\"stable\")[:k]\n    return np.array(points)[order].tolist()",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "numpy",
+  "test_definitions": [
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "query_point": [
+          2,
+          2
+        ],
+        "k": 3
+      },
+      "is_hidden": false,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ]
+        ],
+        "query_point": [
+          0,
+          0
+        ],
+        "k": 1
+      },
+      "is_hidden": false,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ]
+        ],
+        "query_point": [
+          0,
+          0
+        ],
+        "k": 3
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            5
+          ],
+          [
+            3
+          ],
+          [
+            8
+          ],
+          [
+            1
+          ]
+        ],
+        "query_point": [
+          5
+        ],
+        "k": 2
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            4,
+            5,
+            6
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        "query_point": [
+          0,
+          0,
+          0
+        ],
+        "k": 2
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            -1,
+            0
+          ],
+          [
+            0,
+            -1
+          ]
+        ],
+        "query_point": [
+          0,
+          0
+        ],
+        "k": 2
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            5,
+            5
+          ]
+        ],
+        "query_point": [
+          5,
+          5
+        ],
+        "k": 1
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            5,
+            6
+          ]
+        ],
+        "query_point": [
+          1,
+          2
+        ],
+        "k": 1
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            -1,
+            -2
+          ],
+          [
+            -3,
+            -4
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "query_point": [
+          0,
+          0
+        ],
+        "k": 2
+      },
+      "is_hidden": true,
+      "weightage": 10
+    },
+    {
+      "inputs": {
+        "points": [
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            6
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            8,
+            8
+          ]
+        ],
+        "query_point": [
+          4,
+          4
+        ],
+        "k": 4
+      },
+      "is_hidden": true,
+      "weightage": 10
+    }
+  ]
+}

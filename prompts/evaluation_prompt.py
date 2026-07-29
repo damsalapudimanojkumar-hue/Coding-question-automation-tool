@@ -32,6 +32,9 @@ Your solution code must:
 - Load the train/test CSVs using the EXACT DATA FILENAMES given in the user
   message (they carry an assignment-specific suffix), from the workspace path
 - Load the suffixed ground-truth CSV (tests/ground_truth_<CODE>.csv) to compute real metrics
+- The TRAINING data may contain missing values (nulls) on purpose - handling them is part of
+  the task. Impute or otherwise handle them in your reference solution before fitting. The
+  TEST set is already null-free, so no imputation is needed there.
 - Follow the platform rules: no plt.show(), no !pip install
 - Use StandardScaler before fitting (check platform rules)
 - For classification: use predict_proba if the problem requires probabilities
@@ -296,8 +299,25 @@ def build_phase1_user_prompt(
     workspace: str,
     wiki_skill_context: str,
     filenames: str = "",
+    curriculum: str = "",
+    eval_styles: str = "",
 ) -> str:
+    curriculum_block = ""
+    if curriculum and not curriculum.startswith("["):
+        curriculum_block = (
+            "TAUGHT CONTENT FOR THIS TOPIC (calibrate test difficulty to this taught "
+            "depth; the 'Assessed by' line shows how it was graded before):\n"
+            f"{curriculum}\n\n---\n\n"
+        )
+    styles_block = ""
+    if eval_styles and not eval_styles.startswith("["):
+        styles_block = (
+            "OUR SIX EVALUATION STYLES (design the test cases to fit one of these "
+            f"established styles):\n{eval_styles}\n\n---\n\n"
+        )
     return (
+        f"{curriculum_block}"
+        f"{styles_block}"
         f"TOPIC: {topic}\n\n"
         f"WORKSPACE (CSV files are here): {workspace}\n\n"
         f"{filenames}\n\n"

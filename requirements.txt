@@ -6,3 +6,5 @@ pandas
 numpy
 scikit-learn
 streamlit>=1.32
+langfuse>=4.0
+tavily-python>=0.5

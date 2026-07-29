@@ -75,6 +75,25 @@ def apply_edits(workspace, code, ops, seed=42):
         train = pd.concat(parts).sample(frac=1, random_state=seed).reset_index(drop=True)
         changes.append(f"rebalanced to {per_class} rows per class")
 
+    # 2b) impute missing values (train features; fit on train, mirror stats onto test).
+    # Optional - by default nulls are LEFT in train as the student's task.
+    impute = ops.get("impute")  # None | "median" | "mean" | "most_frequent"
+    if impute:
+        filled = 0
+        for c in [c for c in feature_cols if c in train.columns]:
+            is_num = pd.api.types.is_numeric_dtype(train[c])
+            if impute in ("median", "mean") and is_num:
+                val = train[c].mean() if impute == "mean" else train[c].median()
+            else:
+                mode = train[c].mode()
+                val = mode.iloc[0] if len(mode) else None
+            if val is not None:
+                filled += int(train[c].isna().sum())
+                train[c] = train[c].fillna(val)
+                if c in test.columns:
+                    test[c] = test[c].fillna(val)
+        changes.append(f"imputed {filled} missing values ({impute}) using train statistics")
+
     # 3) resize train rows: <1 subsample, >1 bootstrap (with replacement -> duplicates)
     factor = float(ops.get("resize_factor", 1.0) or 1.0)
     if factor > 0 and abs(factor - 1.0) > 1e-9:

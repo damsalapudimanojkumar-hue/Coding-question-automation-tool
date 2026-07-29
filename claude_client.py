@@ -15,10 +15,88 @@ from before.
 """
 
 import os
-from openai import OpenAI
+import threading
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── Per-run cost tracking (OpenRouter "usage accounting") ──────────────────
+# We ask OpenRouter to return the ACTUAL cost it charged per call (via
+# extra_body usage.include) and accumulate it here. Single run at a time, so a
+# module-level tracker with a lock is enough. reset_cost() at the start of a
+# run; cost_summary() to read the total (also works for failed/partial runs).
+
+_USAGE_ACCOUNTING = {"usage": {"include": True}}
+
+
+class _CostTracker:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.reset()
+
+    def reset(self):
+        with self._lock:
+            self.cost = 0.0
+            self.prompt_tokens = 0
+            self.completion_tokens = 0
+            self.calls = 0
+
+    def record(self, usage):
+        # A call happened regardless of whether the provider returned usage data,
+        # so always count it; only add tokens/cost when usage is present.
+        with self._lock:
+            self.calls += 1
+            if usage is None:
+                return
+            self.prompt_tokens += getattr(usage, "prompt_tokens", 0) or 0
+            self.completion_tokens += getattr(usage, "completion_tokens", 0) or 0
+            self.cost += _extract_cost(usage)
+
+    def summary(self):
+        with self._lock:
+            return {
+                "cost_usd": round(self.cost, 6),
+                "prompt_tokens": self.prompt_tokens,
+                "completion_tokens": self.completion_tokens,
+                "total_tokens": self.prompt_tokens + self.completion_tokens,
+                "calls": self.calls,
+            }
+
+
+def _extract_cost(usage) -> float:
+    """OpenRouter returns the real charged cost as `usage.cost`. The OpenAI SDK
+    may expose it directly or tuck it into model_extra — handle both."""
+    cost = getattr(usage, "cost", None)
+    if cost is None:
+        extra = getattr(usage, "model_extra", None) or {}
+        cost = extra.get("cost")
+    try:
+        return float(cost) if cost is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+_tracker = _CostTracker()
+
+
+def reset_cost():
+    """Clear the tally at the start of a run."""
+    _tracker.reset()
+
+
+def cost_summary() -> dict:
+    """Totals for the current run: cost_usd, tokens, calls."""
+    return _tracker.summary()
+
+# Use the Langfuse-traced OpenAI client when Langfuse keys are present; otherwise
+# the plain client. Import-gated so nothing changes until keys are configured.
+if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+    try:
+        from langfuse.openai import OpenAI   # drop-in, auto-traces every call
+    except Exception:
+        from openai import OpenAI
+else:
+    from openai import OpenAI
 
 _client = None
 
@@ -61,7 +139,9 @@ def call_claude(
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
+        extra_body=_USAGE_ACCOUNTING,
     )
+    _tracker.record(getattr(response, "usage", None))
 
     return response.choices[0].message.content
 
@@ -111,7 +191,9 @@ def call_claude_with_search(
             max_tokens=max_tokens,
             messages=messages,
             tools=tools,
+            extra_body=_USAGE_ACCOUNTING,
         )
+        _tracker.record(getattr(response, "usage", None))
 
         choice = response.choices[0]
         message = choice.message
@@ -161,7 +243,9 @@ def call_claude_with_tools(
             max_tokens=max_tokens,
             messages=messages,
             tools=tools,
+            extra_body=_USAGE_ACCOUNTING,
         )
+        _tracker.record(getattr(response, "usage", None))
 
         choice = response.choices[0]
         message = choice.message

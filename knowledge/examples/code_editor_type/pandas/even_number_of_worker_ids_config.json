@@ -1,0 +1,129 @@
+{
+  "question_text": "Identify all employees whose joining date falls in the month of **June** and whose employee ID is an **even number**.\r\n\r\n**Input DataFrame:** `worker`\r\n\r\n| Column Name  | Data Type      |\r\n| ------------ | -------------- |\r\n| worker_id    | int64          |\r\n| first_name   | object         |\r\n| last_name    | object         |\r\n| salary       | int64          |\r\n| joining_date | datetime64[ns] |\r\n| department   | object         |\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Preview Data</summary>\r\n\r\n---\r\n\r\n| worker_id | first_name | last_name | salary | joining_date | department |\r\n|---|---|---|---|---|---|\r\n| 8 | Geetika | Chauhan | 90000 | 2014-04-11 | Admin |\r\n| 11 | Nayah | Laghari | 75000 | 2014-03-20 | Account |\r\n| 2 | Niharika | Verma | 80000 | 2014-06-11 | Admin |\r\n| 12 | Jai | Patel | 85000 | 2014-03-21 | HR |\r\n| 1 | Monika | Arora | 100000 | 2014-02-20 | HR |\r\n| 9 | Agepi | Argon | 90000 | 2015-04-10 | Admin |\r\n| 13 | Jura | Jomun | 980000 | 2013-05-20 | HR |\r\n| 10 | Moe | Acharya | 65000 | 2015-04-11 | HR |\r\n| 6 | Vipul | Diwan | 200000 | 2014-06-11 | Account |\r\n| 3 | Vishal | Singhal | 300000 | 2014-02-20 | HR |\r\n| 4 | Amitah | Singh | 500000 | 2014-02-20 | Admin |\r\n| 5 | Vivek | Bhati | 500000 | 2014-06-11 | Admin |\r\n| 7 | Satish | Kumar | 75000 | 2014-01-20 | Account |\r\n\r\n---\r\n\r\n</details>\r\n\r\n**Requirements**\r\n\r\n- Filter rows where the joining month is June (month = 6)\r\n- Filter rows where worker_id is even\r\n- Use the provided `worker` DataFrame as-is, do not modify or reconstruct the dataset\r\n\r\n**Returns**\r\n\r\n- `pandas.DataFrame` with columns: `worker_id`, `first_name`, `last_name`, `salary`, `joining_date`, `department`",
+  "short_text": "Find Employees with Even Numbered Worker IDs",
+  "difficulty": "EASY",
+  "function_name": "june_even_id_employees",
+  "param_names": [
+    "worker"
+  ],
+  "starter_code": "import pandas as pd\r\n\r\ndef june_even_id_employees(worker):\r\n    \"\"\"\r\n    Identify all employees whose joining date falls in the month of June\r\n    and whose employee ID is an even number.\r\n    \"\"\"\r\n    # Your code here\r\n    return",
+  "solution_code": "import pandas as pd\ndef june_even_id_employees(worker):\n    worker = worker.copy()\n    worker[\"joining_date\"] = pd.to_datetime(worker[\"joining_date\"])\n    res = worker[(worker[\"joining_date\"].dt.month == 6) & (worker[\"worker_id\"] % 2 == 0)]\n    return res.reset_index(drop=True)",
+  "language": "PYTHON38_DATASCIENCE",
+  "time_limit": 4.0,
+  "rounding": 4,
+  "library": "pandas",
+  "test_definitions": [
+    {
+      "inputs": {
+        "worker": [
+          {
+            "worker_id": 8,
+            "first_name": "Geetika",
+            "last_name": "Chauhan",
+            "salary": 90000,
+            "joining_date": "2014-04-11",
+            "department": "Admin"
+          },
+          {
+            "worker_id": 11,
+            "first_name": "Nayah",
+            "last_name": "Laghari",
+            "salary": 75000,
+            "joining_date": "2014-03-20",
+            "department": "Account"
+          },
+          {
+            "worker_id": 2,
+            "first_name": "Niharika",
+            "last_name": "Verma",
+            "salary": 80000,
+            "joining_date": "2014-06-11",
+            "department": "Admin"
+          },
+          {
+            "worker_id": 12,
+            "first_name": "Jai",
+            "last_name": "Patel",
+            "salary": 85000,
+            "joining_date": "2014-03-21",
+            "department": "HR"
+          },
+          {
+            "worker_id": 1,
+            "first_name": "Monika",
+            "last_name": "Arora",
+            "salary": 100000,
+            "joining_date": "2014-02-20",
+            "department": "HR"
+          },
+          {
+            "worker_id": 9,
+            "first_name": "Agepi",
+            "last_name": "Argon",
+            "salary": 90000,
+            "joining_date": "2015-04-10",
+            "department": "Admin"
+          },
+          {
+            "worker_id": 13,
+            "first_name": "Jura",
+            "last_name": "Jomun",
+            "salary": 980000,
+            "joining_date": "2013-05-20",
+            "department": "HR"
+          },
+          {
+            "worker_id": 10,
+            "first_name": "Moe",
+            "last_name": "Acharya",
+            "salary": 65000,
+            "joining_date": "2015-04-11",
+            "department": "HR"
+          },
+          {
+            "worker_id": 6,
+            "first_name": "Vipul",
+            "last_name": "Diwan",
+            "salary": 200000,
+            "joining_date": "2014-06-11",
+            "department": "Account"
+          },
+          {
+            "worker_id": 3,
+            "first_name": "Vishal",
+            "last_name": "Singhal",
+            "salary": 300000,
+            "joining_date": "2014-02-20",
+            "department": "HR"
+          },
+          {
+            "worker_id": 4,
+            "first_name": "Amitah",
+            "last_name": "Singh",
+            "salary": 500000,
+            "joining_date": "2014-02-20",
+            "department": "Admin"
+          },
+          {
+            "worker_id": 5,
+            "first_name": "Vivek",
+            "last_name": "Bhati",
+            "salary": 500000,
+            "joining_date": "2014-06-11",
+            "department": "Admin"
+          },
+          {
+            "worker_id": 7,
+            "first_name": "Satish",
+            "last_name": "Kumar",
+            "salary": 75000,
+            "joining_date": "2014-01-20",
+            "department": "Account"
+          }
+        ]
+      },
+      "is_hidden": false,
+      "weightage": 100
+    }
+  ]
+}
