@@ -65,6 +65,14 @@ FORMULA RULES (CRITICAL - the platform does NOT render LaTeX):
   own line: `![<short name> formula](PLACEHOLDER)` and describe it in words.
 
 CORRECTNESS RULES:
+- LIBRARY RULE (critical - the grader RUNS the solution to compute outputs): import ONLY
+  libraries listed under AVAILABLE LIBRARIES in the task below, plus the Python standard
+  library. Do NOT import anything not listed - the grader can't run it and the question
+  fails. If a needed library isn't available, reframe into what is (NLP text via `re`/str +
+  numpy/scikit-learn; images as numpy arrays; data via pandas).
+- REPRODUCIBILITY (grading is exact string-match, so outputs must be identical every run):
+  pass every weight/parameter as an INPUT (no random init inside the function); if you use
+  any RNG (numpy/torch), seed it and run on CPU; round outputs to the stated decimals.
 - Test the CONCEPT, not an artifact. No "in the notebook / in the slide" phrasings.
 - function_name must be identical in function_name, starter_code, and solution_code.
 - MATCH THE DECLARED RETURN TYPE. If Returns says integer labels, the solution MUST cast
@@ -103,7 +111,10 @@ def _difficulty_rule(difficulty: str) -> str:
 
 def build_codeeditor_problem_prompt(topic, learning_objective, research_output,
                                     reference_docs, example_config,
-                                    difficulty="", idea=None):
+                                    difficulty="", idea=None, available_libs=None):
+    libs = ", ".join(available_libs) if available_libs else "numpy, pandas, scikit-learn, scipy"
+    libs_block = (f"AVAILABLE LIBRARIES (import only these + the Python standard library — the "
+                  f"grader can run these): {libs}\n\n")
     inspiration = ""
     if research_output:
         inspiration = (
@@ -123,7 +134,7 @@ def build_codeeditor_problem_prompt(topic, learning_objective, research_output,
     return f"""TOPIC: {topic}
 LEARNING OBJECTIVE: {learning_objective}
 {spec}
-{inspiration}HOUSE STRUCTURE / FORMULA-STYLE GUIDE:
+{libs_block}{inspiration}HOUSE STRUCTURE / FORMULA-STYLE GUIDE:
 {reference_docs}
 
 GOLD EXAMPLE DESCRIPTIONS (these are real house-style questions — match their clarity,

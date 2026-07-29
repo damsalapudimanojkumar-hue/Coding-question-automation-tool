@@ -21,8 +21,10 @@ computed outputs) is appended to the description.
 import sys
 import os
 import re
+import ast
 import json
 import copy
+import importlib.util
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -31,7 +33,7 @@ from prompts.codeeditor_design_prompt import (
     CODEEDITOR_PROBLEM_SYSTEM_PROMPT, build_codeeditor_problem_prompt, _difficulty_rule,
     CODEEDITOR_TESTS_SYSTEM_PROMPT, build_codeeditor_tests_prompt,
 )
-from tools.testcase_generator import TestCaseGenerator
+from tools.testcase_generator import TestCaseGenerator, normalize_weightages
 from tracing import observe
 
 _PROBLEM_RE = re.compile(
@@ -123,6 +125,49 @@ _PROBLEM_REQUIRED = ["question_text", "short_text", "function_name",
                      "param_names", "starter_code", "solution_code"]
 # Formula styles that break on the platform (LaTeX not rendered).
 _LATEX_MARKERS = ["$$", "$", "\\frac", "\\text", "\\sum", "\\sqrt", "\\begin", "\\mathbf", "\\left"]
+# We don't hardcode an allowlist — we check what's ACTUALLY installed in the
+# generator's environment. "If the generator can import it, a question can use it."
+# ML/DS libraries we advertise to the designer when present (display name -> import).
+_LIB_CANDIDATES = {
+    "numpy": "numpy", "pandas": "pandas", "scikit-learn": "sklearn", "scipy": "scipy",
+    "torch": "torch", "nltk": "nltk", "tensorflow": "tensorflow", "spacy": "spacy",
+    "opencv (cv2)": "cv2", "Pillow (PIL)": "PIL", "matplotlib": "matplotlib",
+}
+_AVAILABLE_CACHE = None
+
+
+def _lib_available(module: str) -> bool:
+    """True if `module` can be imported in THIS environment (fast, no side effects)."""
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError, ModuleNotFoundError):
+        return False
+
+
+def available_libraries() -> list:
+    """The ML/DS libraries actually installed here — advertised to the designer so it
+    only imports things the grader can run. Cached (probing is cheap but repeated)."""
+    global _AVAILABLE_CACHE
+    if _AVAILABLE_CACHE is None:
+        _AVAILABLE_CACHE = [name for name, mod in _LIB_CANDIDATES.items() if _lib_available(mod)]
+    return _AVAILABLE_CACHE
+
+
+def _unavailable_imports(code: str) -> list:
+    """Top-level modules the solution imports that are NOT installed here (so running
+    it to compute outputs would crash). Stdlib + anything installed passes."""
+    try:
+        tree = ast.parse(code or "")
+    except Exception:  # noqa: BLE001
+        return []
+    mods = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for n in node.names:
+                mods.add(n.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            mods.add(node.module.split(".")[0])
+    return sorted(m for m in mods if not _lib_available(m))
 
 
 def _validate_problem(config: dict) -> list:
@@ -143,6 +188,10 @@ def _validate_problem(config: dict) -> list:
         problems.append("question_text contains LaTeX (won't render on the platform — use plain-text formulas)")
     if qt.lstrip().startswith("#"):
         problems.append("question_text starts with a heading (use no H1 title; start with the intro sentence)")
+    bad_imports = _unavailable_imports(config.get("solution_code", ""))
+    if bad_imports:
+        problems.append("solution imports libraries not installed here: " + ", ".join(bad_imports)
+                        + f" (install them, or use one of: {', '.join(available_libraries())} + stdlib)")
     return problems
 
 
@@ -234,6 +283,7 @@ def _design_problem(state: dict, feedback: str = "", idea=None) -> tuple:
         example_config=_example_descriptions(state.get("wiki_examples_raw") or []),
         difficulty=difficulty,
         idea=idea,
+        available_libs=available_libraries(),
     )
     if feedback:
         prompt += ("\n\nREVISION REQUESTED — address this precisely and re-emit ALL four "
@@ -275,6 +325,7 @@ def _design_tests(state: dict, problem_config: dict, feedback: str = "") -> tupl
         tds = _parse_tests(raw)
     except Exception as e:  # noqa: BLE001
         return None, raw, [f"could not parse test cases: {e}"]
+    tds = normalize_weightages(tds)   # weights always sum to exactly 100
     return tds, raw, _validate_tests(tds, problem_config.get("param_names", []), num_tests)
 
 

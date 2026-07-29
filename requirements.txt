@@ -8,3 +8,9 @@ scikit-learn
 streamlit>=1.32
 langfuse>=4.0
 tavily-python>=0.5
+# NLP question support (nltk data is fetched at startup by tools/nlp_setup.py)
+nltk>=3.8
+# Neural-net / deep-CV question support. CPU wheel keeps the Streamlit Cloud build
+# feasible; if the deploy still times out, remove these two lines (CV falls back to numpy).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.0

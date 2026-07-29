@@ -39,6 +39,11 @@ from agents.codeeditor_generate import codeeditor_generate_agent
 
 st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 
+# Fetch nltk data once (no-op if nltk isn't installed) so NLP solutions that tokenize
+# can actually run when the generator computes their expected outputs.
+from tools.nlp_setup import ensure_nltk_data
+ensure_nltk_data()
+
 
 def build_pipeline(cfg):
     """Return a callable(io) that runs the pipeline for cfg's config_type."""

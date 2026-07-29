@@ -425,8 +425,11 @@ class TestCaseGenerator:
         })
 
     def add_test_cases_bulk(self, test_definitions: list):
-        """Add multiple test cases at once."""
-        for td in test_definitions:
+        """Add multiple test cases at once. Weightages are auto-normalized so they
+        always sum to exactly 100, distributed as evenly as possible across however
+        many cases there are (e.g. 20 -> 5 each; 15 -> ten 7s + five 6s)."""
+        tds = normalize_weightages(list(test_definitions))
+        for td in tds:
             self.add_test_case(
                 inputs=td["inputs"],
                 is_hidden=td.get("is_hidden", False),
@@ -775,6 +778,21 @@ if __name__ == "__main__":
             print(f"    Input:  {tc['input']}")
             print(f"    Output: {tc['output']}")
             print()
+
+
+def normalize_weightages(test_definitions: list) -> list:
+    """Redistribute weightages so they sum to EXACTLY 100, as evenly as possible,
+    regardless of how many test cases there are. Integer weights; the first few cases
+    absorb the remainder. Examples: 20 cases -> 5 each; 15 -> ten 7s + five 6s (=100);
+    8 -> four 13s + four 12s (=100). Mutates and returns the same list."""
+    n = len(test_definitions)
+    if n == 0:
+        return test_definitions
+    base = 100 // n
+    remainder = 100 - base * n
+    for i, td in enumerate(test_definitions):
+        td["weightage"] = base + (1 if i < remainder else 0)
+    return test_definitions
 
 
 def generate_bundle(configs: list, output_path: str) -> dict:
