@@ -653,7 +653,7 @@ if __name__ == "__main__":
         eval_code_base64 = self._encode_base64(eval_code)
 
         question_text = self.config.get("rephrased_question_text", self.config["question_text"])
-        short_text = self.config.get("rephrased_short_text", self.config["short_text"])
+        short_text = _cap_title(self.config.get("rephrased_short_text", self.config["short_text"]))
 
         question_id = str(uuid.uuid4())
 
@@ -778,6 +778,18 @@ if __name__ == "__main__":
             print(f"    Input:  {tc['input']}")
             print(f"    Output: {tc['output']}")
             print()
+
+
+def _cap_title(text: str, limit: int = 50) -> str:
+    """Keep a question title within `limit` characters (platform titles must stay short).
+    Collapses whitespace; if too long, trims back to the last word boundary that fits."""
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if " " in cut:
+        cut = cut[:cut.rfind(" ")]
+    return cut.strip() or text[:limit].strip()
 
 
 def normalize_weightages(test_definitions: list) -> list:

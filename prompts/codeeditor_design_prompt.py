@@ -97,7 +97,8 @@ Python, no escaping, no ```fences```). Only META_JSON is JSON.
 ---END_DESIGN---
 
 META_JSON must contain ONLY those short structured fields (no formulas, no code) so it
-always parses."""
+always parses. short_text (and rephrased_short_text) is a TITLE: keep it concise, at most
+50 characters (aim ~40) - e.g. "Softmax Activation", "AdaBoost Inference"."""
 
 
 def _difficulty_rule(difficulty: str) -> str:

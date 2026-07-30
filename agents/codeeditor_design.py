@@ -183,6 +183,9 @@ def _validate_problem(config: dict) -> list:
                 problems.append(f"function_name '{fn}' not defined in {field}")
     if not isinstance(config.get("param_names"), list) or not config.get("param_names"):
         problems.append("param_names must be a non-empty list")
+    title = config.get("rephrased_short_text") or config.get("short_text", "")
+    if len(title) > 50:
+        problems.append(f"title is {len(title)} chars (must be <= 50; it will be trimmed)")
     qt = config.get("question_text", "")
     if any(m in qt for m in _LATEX_MARKERS):
         problems.append("question_text contains LaTeX (won't render on the platform — use plain-text formulas)")
