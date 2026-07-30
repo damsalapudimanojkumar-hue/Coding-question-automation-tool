@@ -15,8 +15,19 @@ from before.
 """
 
 import os
+import re
 import threading
 from dotenv import load_dotenv
+
+
+def _strip_dashes(text: str) -> str:
+    """House style: NO em/en dashes anywhere in generated content. Replace an em dash
+    (—), en dash (–), or horizontal bar (―) — with any spaces around it — by a single
+    spaced hyphen. Regular hyphens are untouched. Applied to every model text return so
+    it holds across BOTH pipelines (code-editor and vscode)."""
+    if not text:
+        return text
+    return re.sub(r"\s*[—–―]\s*", " - ", text)
 
 load_dotenv()
 
@@ -143,7 +154,7 @@ def call_claude(
     )
     _tracker.record(getattr(response, "usage", None))
 
-    return response.choices[0].message.content
+    return _strip_dashes(response.choices[0].message.content)
 
 
 def call_claude_with_search(
@@ -199,7 +210,7 @@ def call_claude_with_search(
         message = choice.message
 
         if choice.finish_reason != "tool_calls":
-            return (message.content or "").strip()
+            return _strip_dashes((message.content or "").strip())
 
         # Server tool calls are executed by OpenRouter itself, not by us,
         # but we still need to append the assistant turn and continue the
@@ -251,7 +262,7 @@ def call_claude_with_tools(
         message = choice.message
 
         if choice.finish_reason != "tool_calls":
-            return (message.content or "").strip()
+            return _strip_dashes((message.content or "").strip())
 
         messages.append(message.model_dump())
 

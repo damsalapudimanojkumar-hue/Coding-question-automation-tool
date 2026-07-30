@@ -74,6 +74,8 @@ CORRECTNESS RULES:
   pass every weight/parameter as an INPUT (no random init inside the function); if you use
   any RNG (numpy/torch), seed it and run on CPU; round outputs to the stated decimals.
 - Test the CONCEPT, not an artifact. No "in the notebook / in the slide" phrasings.
+- PUNCTUATION: never use em dashes (—) or en dashes (–). Use a comma, a period, or a
+  spaced hyphen ( - ) instead.
 - function_name must be identical in function_name, starter_code, and solution_code.
 - MATCH THE DECLARED RETURN TYPE. If Returns says integer labels, the solution MUST cast
   to Python int (e.g. `.astype(int).tolist()`) so computed outputs are `1`, not `1.0`.
