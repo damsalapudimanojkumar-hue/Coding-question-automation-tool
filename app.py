@@ -14,6 +14,7 @@ script only reads snapshot() and calls answer()/start() from the main thread.
 
 import io as _io
 import os
+import re
 import sys
 import time
 import zipfile
@@ -28,6 +29,7 @@ except Exception:
 import streamlit as st
 
 from ui.session import WebSession
+from ui import persistence
 from tracing import observe, flush as trace_flush
 from claude_client import reset_cost, cost_summary
 from agents.wiki_loader import wiki_loader_agent
@@ -43,6 +45,23 @@ st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 # can actually run when the generator computes their expected outputs.
 from tools.nlp_setup import ensure_nltk_data
 ensure_nltk_data()
+
+
+def _build_version():
+    """Short git commit the app is running on — shown in the sidebar so you can see
+    whether the deployed link matches your latest push. Computed once at startup."""
+    import subprocess
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL,
+        ).decode().strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+BUILD_VERSION = _build_version()
 
 
 def build_pipeline(cfg):
@@ -117,6 +136,91 @@ def latest_event(events, kind):
     return found
 
 
+def _active_stage(is_codeeditor, status, pending, events):
+    """Work out which pipeline stage the run is at, using only the signals the agents
+    already emit (event kinds, the pending question, status). No agent changes needed."""
+    kinds = [e.get("kind") for e in events]
+    if status == "done":
+        return "Deliverable"
+    if pending:
+        k, ph = pending.get("kind"), pending.get("phase")
+        if ph == "tests" or k == "eval_action":
+            return "Tests" if is_codeeditor else "Evaluation"
+        if k == "codeeditor_pick" or ph == "problem":
+            return "Problem"
+        if k in ("select_option", "recovery", "draft_action", "edit_dataset", "text"):
+            return "Problem & Data"
+    if "codeeditor_outputs" in kinds:
+        return "Deliverable"
+    if "research" in kinds:
+        return "Problem" if is_codeeditor else "Problem & Data"
+    return "Research"
+
+
+def render_breadcrumb(is_codeeditor, status, pending, events):
+    """A one-line 'you are here' bar. Completed stages get a check, the current one is
+    highlighted, upcoming ones are dimmed."""
+    stages = (["Wiki", "Research", "Problem", "Tests", "Deliverable"] if is_codeeditor
+              else ["Wiki", "Research", "Problem & Data", "Evaluation", "Deliverable"])
+    active = _active_stage(is_codeeditor, status, pending, events)
+    i = stages.index(active) if active in stages else 0
+    cells = []
+    for n, s in enumerate(stages):
+        if n < i:
+            cells.append(f":green[✓ {s}]")
+        elif n == i:
+            cells.append(f"**:orange[● {s}]**")
+        else:
+            cells.append(f":gray[○ {s}]")
+    st.markdown("&nbsp;&nbsp;→&nbsp;&nbsp;".join(cells))
+
+
+def list_runs(limit=25):
+    """Every past run = a folder under outputs/. Return them newest-first. Cheap:
+    just a directory listing + modified-time; no zipping happens here."""
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+    if not os.path.isdir(root):
+        return []
+    runs = []
+    for name in os.listdir(root):
+        path = os.path.join(root, name)
+        if os.path.isdir(path):
+            try:
+                runs.append({"name": name, "path": path, "mtime": os.path.getmtime(path)})
+            except OSError:
+                pass
+    runs.sort(key=lambda r: r["mtime"], reverse=True)
+    return runs[:limit]
+
+
+def render_history_sidebar():
+    """Sidebar 'Past runs' picker. Only the SELECTED run is zipped (on demand), so
+    this stays cheap even with many runs in outputs/."""
+    with st.sidebar:
+        st.caption(f"build `{BUILD_VERSION}`")
+        with st.expander("📁 Past runs", expanded=False):
+            runs = list_runs()
+            if not runs:
+                st.caption("No past runs yet.")
+                return
+            names = [r["name"] for r in runs]
+            sel = st.selectbox("Open a run", names, key="hist_sel", label_visibility="collapsed")
+            run = next((r for r in runs if r["name"] == sel), None)
+            if not run:
+                return
+            files = sorted(f for f in os.listdir(run["path"])
+                           if os.path.isfile(os.path.join(run["path"], f)))
+            if files:
+                st.caption("Contains: " + ", ".join(files[:6]) + ("…" if len(files) > 6 else ""))
+            st.download_button(
+                "⬇ Download this run (.zip)",
+                data=zip_workspace(run["path"]),         # zips ONLY the selected folder
+                file_name=f"{sel}.zip",
+                mime="application/zip",
+                key=f"hist_dl_{sel}",
+            )
+
+
 def render_research_body(ev):
     """Render a research brief plus the list of sites Tavily actually explored."""
     st.markdown(ev.get("text", ""))
@@ -152,8 +256,42 @@ if "ws" not in st.session_state:
 st.title("DSML Assignment Pipeline")
 ws = st.session_state.ws
 
+# Sidebar 'Past runs' + build marker — rendered here (before the start/running split)
+# so it's available on every screen.
+render_history_sidebar()
+
+def render_recovery_panel():
+    """On the start screen, surface an interrupted run (from autosave) and let the
+    user download the design it had already produced, so a crash doesn't waste it."""
+    interrupted = [r for r in persistence.list_runs()
+                   if r.get("status") in ("awaiting", "running", "error")]
+    if not interrupted:
+        return
+    r = interrupted[0]
+    meta = r.get("meta", {})
+    with st.container(border=True):
+        st.warning(f"⏳ Unfinished run found: **{meta.get('topic', '(unknown)')}**  "
+                   f"· status `{r.get('status')}`")
+        previews = [e for e in r.get("events", []) if e.get("kind") == "codeeditor_preview"]
+        c1, c2 = st.columns([3, 1])
+        if previews:
+            import json as _json
+            c1.download_button(
+                "⬇ Recover the design it produced (.json)",
+                data=_json.dumps(previews[-1].get("config", {}), indent=2),
+                file_name=f"recovered_{meta.get('topic', 'design')}.json",
+                mime="application/json", key="recover_dl",
+            )
+        else:
+            c1.caption("No design was captured before it stopped.")
+        if c2.button("Discard", key="recover_discard"):
+            persistence.delete_run(r["run_id"])
+            st.rerun()
+
+
 # ── START FORM ───────────────────────────────────────────────────────────
 if ws is None:
+    render_recovery_panel()
     st.caption("Start a new assignment. Choose the question format below.")
     # Format selector lives OUTSIDE the form so the fields below adapt to it.
     fmt_label = st.radio(
@@ -170,15 +308,14 @@ if ws is None:
                 "Learning objective",
                 "Implement a numerically stable softmax from scratch.",
             )
-            c1, c2 = st.columns(2)
-            code = c1.text_input("Assignment code (short, e.g. SFM)", "SFM")
-            difficulty = c2.selectbox("Difficulty", ["auto", "EASY", "MEDIUM", "HARD"], index=0)
+            difficulty = st.selectbox("Difficulty", ["auto", "EASY", "MEDIUM", "HARD"], index=0)
             c3, c4 = st.columns(2)
             num_tests = c3.slider("Number of test cases", 8, 12, 10)
             num_candidates = c4.slider("Number of questions", 1, 5, 1,
                                        help="More than 1 generates several DIFFERENT questions "
                                             "on the topic for you to pick from.")
-            atype = "tabular"   # unused by code-editor; kept for state parity
+            code = None          # deliverable is named from the topic — no code field needed
+            atype = "tabular"    # unused by code-editor; kept for state parity
             st.caption("🔎 Web research (Tavily, scoped to Deep-ML / TensorTonic / "
                        "StrataScratch) runs automatically to find and adapt the best questions.")
         else:
@@ -211,6 +348,11 @@ if ws is None:
             })
         st.session_state.is_codeeditor = is_codeeditor
         new_ws = WebSession()
+        # give the run an id + meta so it autosaves and can be recovered on refresh
+        slug = re.sub(r"[^a-z0-9]+", "-", topic.lower()).strip("-")[:30] or "run"
+        new_ws.run_id = f"{slug}_{int(time.time())}"
+        new_ws.meta = {"topic": topic, "config_type": cfg["config_type"],
+                       "is_codeeditor": is_codeeditor}
         new_ws.start(build_pipeline(cfg))
         st.session_state.ws = new_ws
         st.rerun()
@@ -228,6 +370,10 @@ with st.sidebar:
         st.session_state.ws = None
         st.session_state.pop("is_codeeditor", None)
         st.rerun()
+
+# stage breadcrumb ("you are here") — reads the emitted events, changes no agent
+render_breadcrumb(st.session_state.get("is_codeeditor", False), status, pending, events)
+st.divider()
 
 # research brief (collapsible). For code-editor the brief is shown inside the
 # problem-review screen instead, so skip it here to avoid showing it twice.
@@ -254,6 +400,8 @@ if status in ("idle", "running"):
 
 if status == "done":
     res = ws.result or {}
+    # run finished — its deliverable is in outputs/, so drop the autosave snapshot
+    persistence.delete_run(getattr(ws, "run_id", None))
 
     # ── code-editor result view ────────────────────────────────────────────
     if res.get("config_type") == "code_editor_type":

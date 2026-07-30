@@ -206,9 +206,32 @@ class WebSession:
         self.status = "idle"      # idle | running | awaiting | done | error
         self.result = None
         self.error = None
+        self.run_id = None        # set by the UI; enables autosave when present
+        self.meta = None          # small dict (topic, config_type) for the recovery panel
         self._answer = queue.Queue(maxsize=1)
         self._lock = threading.RLock()
         self._thread = None
+
+    def _persist(self):
+        """Autosave a compact snapshot so a refresh/crash can recover this run.
+        No-op unless the UI set a run_id. Never raises."""
+        if not self.run_id:
+            return
+        try:
+            import time
+            from ui import persistence
+            with self._lock:
+                data = {
+                    "run_id": self.run_id,
+                    "ts": time.time(),
+                    "status": self.status,
+                    "meta": self.meta or {},
+                    "events": list(self.events),
+                    "pending": dict(self.pending) if self.pending else None,
+                }
+            persistence.save_run(self.run_id, data)
+        except Exception:  # noqa: BLE001 - autosave must never break the run
+            pass
 
     # -- called by the pipeline (worker thread) --
     def emit(self, kind, **payload):
@@ -219,6 +242,7 @@ class WebSession:
         with self._lock:
             self.pending = dict(spec)
             self.status = "awaiting"
+        self._persist()                     # checkpoint at the pause (a refresh point)
         value = self._answer.get()          # blocks the worker thread
         with self._lock:
             self.pending = None
@@ -247,6 +271,7 @@ class WebSession:
                 self.error = e
                 with self._lock:
                     self.status = "error"
+            self._persist()                 # checkpoint the final state (done/error)
 
         self._thread = threading.Thread(target=_run, daemon=True)
         self._thread.start()

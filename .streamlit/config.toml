@@ -1,0 +1,9 @@
+# Streamlit reads this file automatically at startup and themes the whole app.
+# "Batman" palette: near-black surfaces + a bat-gold accent.
+[theme]
+base = "dark"                       # start from Streamlit's dark base
+primaryColor = "#F2C744"            # bat-gold: buttons, sliders, active widgets, links
+backgroundColor = "#0E1117"         # main canvas — near-black
+secondaryBackgroundColor = "#1A1F27" # sidebar, cards, inputs, code blocks — charcoal
+textColor = "#E6E6E6"               # off-white body text
+font = "sans serif"

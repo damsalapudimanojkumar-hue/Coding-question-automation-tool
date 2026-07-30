@@ -13,8 +13,7 @@ against the design-time formula computation (the two must agree).
 Input it reads from state:
     state["codeeditor_config"]  -> approved config dict (single) OR list of configs
     state["output_dir"]         -> unique per-run output folder (from Agent 0)
-    state["assignment_code"]    -> short code (e.g. BCE) suffixing the deliverable
-    state["topic"]
+    state["topic"]              -> names the deliverable zip (IDE_BASED_QUESTION_<topic>.zip)
 
 Output it writes back into state:
     state["codeeditor_deliverable"] -> path to the generated .zip
@@ -23,12 +22,12 @@ Output it writes back into state:
 
 import sys
 import os
+import re
 import copy
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.testcase_generator import TestCaseGenerator, generate_bundle
-from naming import zip_names, make_code
 from tracing import observe
 
 
@@ -76,8 +75,9 @@ def codeeditor_generate_agent(state: dict, io) -> dict:
                          "the design agent must run and be approved first.")
 
     output_dir = state.get("output_dir") or os.getcwd()
-    code = state.get("assignment_code") or make_code(state.get("topic", ""))
-    zip_path = os.path.join(output_dir, zip_names(code)["question"])
+    # Name the deliverable from the TOPIC — no user-entered assignment code needed.
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", state.get("topic", "")).strip("_") or "question"
+    zip_path = os.path.join(output_dir, f"IDE_BASED_QUESTION_{slug}.zip")
 
     io.emit("stage", text="AGENT 3 (code-editor): GENERATE")
     io.emit("log", text=f"Building deliverable -> {os.path.basename(zip_path)}")
