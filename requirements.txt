@@ -8,6 +8,7 @@ scikit-learn
 streamlit>=1.32
 langfuse>=4.0
 tavily-python>=0.5
+requests>=2.31          # GitHub-backed question library (tools/github_store.py)
 # NLP question support (nltk data is fetched at startup by tools/nlp_setup.py)
 nltk>=3.8
 # Neural-net / deep-CV question support. CPU wheel keeps the Streamlit Cloud build

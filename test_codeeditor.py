@@ -30,7 +30,6 @@ except Exception:
     pass
 
 from agents.wiki_loader import wiki_loader_agent
-from agents.codeeditor_design import codeeditor_design_agent
 from agents.codeeditor_generate import codeeditor_generate_agent
 from ui.session import TerminalIO
 from claude_client import reset_cost, cost_summary
@@ -69,22 +68,21 @@ def main():
         "codeeditor_include_examples": not args.no_examples,
     }
 
-    # Agent 0 — Wiki Loader (routes to the code-editor branch)
-    state.update(wiki_loader_agent(state))
-
     if args.from_config:
+        # Deterministic plumbing check (no LLM): run the loader for routing + output_dir,
+        # inject the ready config, then run only the generator. Stays a direct call because
+        # the whole point of this mode is to SKIP design — the graph always runs design.
+        state.update(wiki_loader_agent(state))
         with open(args.from_config, "r", encoding="utf-8") as f:
             state["codeeditor_config"] = json.load(f)
         print(f"\n[from-config] Loaded {args.from_config} — skipping design agent.")
+        state.update(codeeditor_generate_agent(state, io))
     else:
-        if args.research:
-            from agents.research import research_agent
-            state.update(research_agent(state))
-        # Agent 2 — Design (LLM + HITL review)
-        state.update(codeeditor_design_agent(state, io))
-
-    # Agent 3 — Generate (deterministic)
-    state.update(codeeditor_generate_agent(state, io))
+        # Full design run — drive the SAME LangGraph the Streamlit app uses, so this CLI
+        # exercises the real production path instead of a duplicate hand-written chain.
+        from graph import build_pipeline_graph
+        state["use_research"] = args.research   # research node is opt-in on the CLI
+        state = build_pipeline_graph(io).invoke(state)
 
     cost = cost_summary()
     print("\n" + "=" * 60)

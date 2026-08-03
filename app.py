@@ -32,12 +32,8 @@ from ui.session import WebSession
 from ui import persistence
 from tracing import observe, flush as trace_flush
 from claude_client import reset_cost, cost_summary
-from agents.wiki_loader import wiki_loader_agent
-from agents.research import research_agent
-from agents.problem_dataset import problem_dataset_agent
-from agents.evaluation_designer import evaluation_designer_agent
-from agents.codeeditor_design import codeeditor_design_agent
-from agents.codeeditor_generate import codeeditor_generate_agent
+from graph import build_pipeline_graph   # the pipeline is now a LangGraph StateGraph
+from tools import github_store            # durable question library (GitHub-backed)
 
 st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 
@@ -65,54 +61,22 @@ BUILD_VERSION = _build_version()
 
 
 def build_pipeline(cfg):
-    """Return a callable(io) that runs the pipeline for cfg's config_type."""
+    """Return a callable(io) that runs the pipeline for cfg's config_type.
+
+    The pipeline is now a LangGraph StateGraph (see graph.py). We build it per run so
+    its nodes bind to this run's `io`, then invoke it with the start config as the
+    initial state. graph.invoke runs synchronously in the worker thread; the HITL nodes
+    pause by blocking on io.ask, exactly as the hand-written chain did. The final state
+    it returns becomes ws.result, which the screens below read with res.get(...)."""
     @observe(name="assignment_pipeline", as_type="chain")
     def pipeline(io):
         try:
             reset_cost()   # start this run's cost tally from zero
-            state = dict(cfg)
-            state.update(wiki_loader_agent(state))
-
-            if cfg.get("config_type") == "code_editor_type":
-                return _run_codeeditor(state, io, cfg)
-
-            io.emit("log", text=f"Wiki loaded (code {state.get('assignment_code')}). Researching...")
-            state.update(research_agent(state))
-            io.emit("research", text=state.get("research_output", ""),
-                    sites=state.get("research_sites", []))
-            io.emit("log", text="Research complete. Generating options...")
-            state.update(problem_dataset_agent(state, io))
-
-            if not state.get("approved") or not state.get("problem_statement"):
-                io.emit("log", text="Stopped before evaluation (no approved problem statement).")
-                return state
-
-            io.emit("log", text="Problem approved. Building evaluation (Agent 3)...")
-            state.update(evaluation_designer_agent(state, io))
-            return state
+            graph = build_pipeline_graph(io)
+            return graph.invoke(dict(cfg))
         finally:
             trace_flush()   # push any buffered Langfuse traces before the worker ends
     return pipeline
-
-
-def _run_codeeditor(state, io, cfg):
-    """Code-editor flow: Wiki -> (optional Research) -> Design (HITL) -> Generate."""
-    io.emit("log", text=f"Wiki loaded (code {state.get('assignment_code')}).")
-    if cfg.get("use_research"):
-        io.emit("log", text="Researching code-editor sites for inspiration...")
-        state.update(research_agent(state))
-        io.emit("research", text=state.get("research_output", ""),
-                sites=state.get("research_sites", []))
-    io.emit("log", text="Designing the question...")
-    state.update(codeeditor_design_agent(state, io))
-
-    if not state.get("codeeditor_config"):
-        io.emit("log", text="Stopped before generate (no approved config).")
-        return state
-
-    io.emit("log", text="Config approved. Generating deliverable...")
-    state.update(codeeditor_generate_agent(state, io))
-    return state
 
 
 def zip_workspace(workspace):
@@ -126,6 +90,65 @@ def zip_workspace(workspace):
                 zf.write(full, os.path.relpath(full, workspace))
     buf.seek(0)
     return buf.getvalue()
+
+
+def _gather_library_files(out_dir, only=None):
+    """Collect {relative_path: bytes} from a run's output folder, ready to push to GitHub.
+    - code-editor: pass only={the 2 deliverable JSONs} so the portal zip stays clean.
+    - vscode: pass only=None to walk the whole workspace (notebook, tests/, data, ...).
+    Zips and cache folders are always skipped."""
+    files = {}
+    if only:
+        for name in only:
+            p = os.path.join(out_dir, name)
+            if os.path.isfile(p):
+                with open(p, "rb") as fh:
+                    files[name] = fh.read()
+        return files
+    for root, dirs, names in os.walk(out_dir):
+        dirs[:] = [d for d in dirs if d not in ("__pycache__", ".pytest_cache", ".sessions")]
+        for name in names:
+            if name.endswith(".zip"):
+                continue
+            full = os.path.join(root, name)
+            rel = os.path.relpath(full, out_dir).replace("\\", "/")
+            with open(full, "rb") as fh:
+                files[rel] = fh.read()
+    return files
+
+
+def render_save_to_library(kind, res):
+    """A 'Save to Library' button that pushes this run's deliverable to the GitHub
+    question-bank. `kind` is 'code_editor' or 'vscode'. No-ops with a hint if the
+    GitHub token isn't configured. Remembers success in session_state so a Streamlit
+    rerun never pushes the same question twice."""
+    out_dir = res.get("output_dir") or (
+        os.path.dirname(res.get("codeeditor_deliverable") or "") or None)
+    if not out_dir or not os.path.isdir(out_dir):
+        return
+    if not github_store.available():
+        st.caption("💾 To save questions to GitHub, set `GITHUB_TOKEN` and `GH_REPO` "
+                   "(see `.env.example`).")
+        return
+
+    saved_key = f"saved::{out_dir}"
+    if st.session_state.get(saved_key):
+        st.success(f"✅ Saved to GitHub: `{st.session_state[saved_key]}`")
+        return
+
+    if st.button("💾 Save to Library (GitHub)", key=f"save_{kind}"):
+        only = ({"coding_questions.json", "question_sets_questions.json"}
+                if kind == "code_editor" else None)
+        files = _gather_library_files(out_dir, only=only)
+        if not files:
+            st.warning("No deliverable files found to save.")
+            return
+        try:
+            path = github_store.push_question(kind, res.get("topic", "") or "question", files)
+            st.session_state[saved_key] = path
+            st.success(f"✅ Saved to GitHub: `{path}`")
+        except Exception as e:  # noqa: BLE001 - surface any API/config error to the user
+            st.error(f"Save failed: {e}")
 
 
 def latest_event(events, kind):
@@ -442,6 +465,7 @@ if status == "done":
         if readable:
             st.caption("Also written next to the zip (readable): " + ", ".join(readable))
         st.caption(f"Saved: {os.path.dirname(deliverable) if deliverable else res.get('output_dir', '')}")
+        render_save_to_library("code_editor", res)
         st.stop()
 
     if res.get("evaluation_complete"):
@@ -473,6 +497,7 @@ if status == "done":
                 mime="application/zip",
             )
     st.caption(f"Files saved in: {workspace or ''}")
+    render_save_to_library("vscode", res)
     st.stop()
 
 # ── status == awaiting: render the widget for the pending question ─────────

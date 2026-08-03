@@ -1,0 +1,712 @@
+{
+  "set_name": "Classification Loss Functions",
+  "topic": "Classification Loss Functions",
+  "questions": [
+    {
+      "question_text": "Write a Python function that calculates the **Binary Cross-Entropy (BCE) Loss** between true binary labels and predicted probabilities. BCE is the standard loss function for binary classification problems.\n\nThe BCE formula is:\n\n![BCE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/BCE.png)\n\nThe function should handle numerical stability by clipping predicted probability values to avoid taking the logarithm of exactly 0 or 1.\n\n**Parameters**\n\n- `y_true` (list[int]): True binary labels (0 or 1)\n- `y_pred` (list[float]): Predicted probabilities (values between 0 and 1)\n- `epsilon` (float): Small value for numerical stability (default = 1e-15)\n\n**Returns**\n\n- float: The BCE loss value, rounded to four decimal places\n\n<details>\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\n\n---\n\n**Understanding Binary Cross-Entropy**\n\nBinary Cross-Entropy measures how well predicted probabilities match the true binary labels. It is the go-to loss function for binary classification tasks.\n\n**How it works**\n\nFor each sample:\n\n- If true label is 1: loss = -log(p). The closer p is to 1, the lower the loss.\n- If true label is 0: loss = -log(1-p). The closer p is to 0, the lower the loss.\n\n**Why clipping is needed**\n\nlog(0) is undefined and log(1) = 0. If a predicted probability is exactly 0 or 1, the log computation breaks. Clipping ensures probabilities stay within a safe range.\n\n**Characteristics**\n\n- **Always non-negative:** BCE is 0 or positive. Lower is better.\n\n- **Logarithmic penalty:** Confident wrong predictions are penalized heavily.\n\n- **Probabilistic interpretation:** Minimizing BCE is equivalent to maximizing the likelihood of the correct labels.\n\n**When to use**\n\nBCE is used whenever you have a binary classification task \u2014 spam detection, disease diagnosis, sentiment analysis (positive/negative), etc.\n\n---\n\n</details>",
+      "short_text": "Calculate Binary Cross-Entropy Loss",
+      "difficulty": "EASY",
+      "function_name": "binary_cross_entropy",
+      "param_names": [
+        "y_true",
+        "y_pred"
+      ],
+      "starter_code": "import numpy as np\n\ndef binary_cross_entropy(y_true, y_pred, epsilon=1e-15):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef binary_cross_entropy(y_true, y_pred, epsilon=1e-15):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    y_pred = np.clip(y_pred, epsilon, 1 - epsilon)\n    loss = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))\n    return round(float(np.mean(loss)), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              0,
+              1,
+              0
+            ],
+            "y_pred": [
+              0.9,
+              0.1,
+              0.8,
+              0.2
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              1,
+              1
+            ],
+            "y_pred": [
+              1.0,
+              1.0,
+              1.0
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1
+            ],
+            "y_pred": [
+              0.5
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0
+            ],
+            "y_pred": [
+              0.5
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              0
+            ],
+            "y_pred": [
+              0.01,
+              0.99
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              0,
+              1,
+              0,
+              1
+            ],
+            "y_pred": [
+              0.99,
+              0.01,
+              0.95,
+              0.05,
+              0.9
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              0.5,
+              0.5,
+              0.5,
+              0.5
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              1,
+              0,
+              0
+            ],
+            "y_pred": [
+              0.6,
+              0.7,
+              0.3,
+              0.4
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              0
+            ],
+            "y_pred": [
+              0.0,
+              1.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    },
+    {
+      "question_text": "Write a Python function that calculates the **Categorical Cross-Entropy (CCE) Loss** between true class labels and predicted class probabilities. CCE is the standard loss function for multi-class classification problems.\r\n\r\nThe CCE formula is:\r\n\r\n![CCE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/CCE1.png)\r\n\r\nThe function should handle numerical stability by clipping predicted probability values to avoid taking the logarithm of exactly 0.\r\n\r\n**Parameters**\r\n\r\n- `y_true` (list[list[int]]): True labels in one-hot encoded format\r\n- `y_pred` (list[list[float]]): Predicted class probabilities (each row sums to 1)\r\n- `epsilon` (float): Small value for numerical stability (default = 1e-15)\r\n\r\n**Returns**\r\n\r\n- float: The CCE loss value, rounded to four decimal places\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\r\n\r\n---\r\n\r\n**Understanding Categorical Cross-Entropy**\r\n\r\nCategorical Cross-Entropy measures how well predicted class probabilities match the true class labels. It is the standard loss function for multi-class classification.\r\n\r\n**How it works**\r\n\r\nFor each sample, only the predicted probability of the true class matters. The one-hot encoded label acts as a mask, it selects the predicted probability corresponding to the correct class, and the loss is the negative log of that probability.\r\n\r\n**Why one-hot encoding**\r\n\r\nIn one-hot format, each label is a vector with 1 at the true class position and 0 elsewhere. For example, with 3 classes:\r\n\r\n- Class 0: [1, 0, 0]\r\n- Class 1: [0, 1, 0]\r\n- Class 2: [0, 0, 1]\r\n\r\nWhen multiplied with predicted probabilities, only the true class probability survives.\r\n\r\n**Characteristics**\r\n\r\n- **Always non-negative:** CCE is 0 or positive. Lower is better.\r\n\r\n- **Logarithmic penalty:** Confident wrong predictions are penalized heavily.\r\n\r\n- **Works with softmax:** CCE pairs naturally with softmax output layer for multi-class classification.\r\n\r\n**When to use**\r\n\r\nCCE is used for multi-class classification tasks \u2014 image classification (cat/dog/bird), digit recognition (0-9), language detection, etc.\r\n\r\n---\r\n\r\n</details>",
+      "short_text": "Calculate Categorical Cross-Entropy Loss",
+      "difficulty": "EASY",
+      "function_name": "categorical_cross_entropy",
+      "param_names": [
+        "y_true",
+        "y_pred"
+      ],
+      "starter_code": "import numpy as np\n\ndef categorical_cross_entropy(y_true, y_pred, epsilon=1e-15):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef categorical_cross_entropy(y_true, y_pred, epsilon=1e-15):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    y_pred = np.clip(y_pred, epsilon, 1 - epsilon)\n    loss = -np.sum(y_true * np.log(y_pred)) / len(y_true)\n    return round(float(loss), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.9,
+                0.05,
+                0.05
+              ],
+              [
+                0.1,
+                0.8,
+                0.1
+              ],
+              [
+                0.2,
+                0.1,
+                0.7
+              ]
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0
+              ]
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.5,
+                0.5
+              ],
+              [
+                0.5,
+                0.5
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0,
+                0
+              ]
+            ],
+            "y_pred": [
+              [
+                0.9,
+                0.05,
+                0.05
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.01,
+                0.99
+              ],
+              [
+                0.99,
+                0.01
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.7,
+                0.1,
+                0.1,
+                0.1
+              ],
+              [
+                0.1,
+                0.7,
+                0.1,
+                0.1
+              ],
+              [
+                0.1,
+                0.1,
+                0.7,
+                0.1
+              ],
+              [
+                0.1,
+                0.1,
+                0.1,
+                0.7
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.33,
+                0.33,
+                0.34
+              ],
+              [
+                0.33,
+                0.33,
+                0.34
+              ],
+              [
+                0.33,
+                0.33,
+                0.34
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ],
+            "y_pred": [
+              [
+                0.0,
+                1.0
+              ],
+              [
+                1.0,
+                0.0
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ]
+            ],
+            "y_pred": [
+              [
+                0.99,
+                0.005,
+                0.005
+              ],
+              [
+                0.01,
+                0.98,
+                0.01
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ]
+            ],
+            "y_pred": [
+              [
+                0.2,
+                0.6,
+                0.2
+              ],
+              [
+                0.1,
+                0.8,
+                0.1
+              ],
+              [
+                0.3,
+                0.5,
+                0.2
+              ]
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    },
+    {
+      "question_text": "Write a Python function that calculates the **Hinge Loss** between true labels and predicted scores. Hinge Loss is the standard loss function for Support Vector Machine (SVM) classifiers.\r\n\r\nThe Hinge Loss formula is:\r\n\r\n![Hinge Loss Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/Hinge_loss.png)\r\n\r\n**Parameters**\r\n\r\n- `y_true` (list[int]): True labels (-1 or 1)\r\n- `y_pred` (list[float]): Predicted scores (raw model output, not probabilities)\r\n\r\n**Returns**\r\n\r\n- float: The Hinge Loss value, rounded to four decimal places\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\r\n\r\n---\r\n\r\n**Understanding Hinge Loss**\r\n\r\nHinge Loss is used to train classifiers, most notably Support Vector Machines (SVMs). It encourages correct classification with a margin.\r\n\r\n**How it works**\r\n\r\nFor each sample:\r\n\r\n- If correctly classified with margin (y\\_true * y\\_pred \u2265 1): loss = 0. No penalty.\r\n- If correctly classified but within margin (0 < y\\_true \\* y\\_pred < 1): loss = 1 - y\\_true * y\\_pred. Small penalty.\r\n- If misclassified (y\\_true \\* y\\_pred < 0): loss = 1 - y\\_true * y\\_pred. Large penalty.\r\n\r\n**Why labels are -1 and 1**\r\n\r\nUnlike BCE which uses 0/1 labels, Hinge Loss uses -1/1 labels. This is because the loss depends on the product y\\_true \\* y\\_pred, the sign tells if the prediction is correct, and the magnitude tells how confident.\r\n\r\n**Characteristics**\r\n\r\n- **Margin-based:** Not just correct/incorrect, but how confidently correct.\r\n\r\n- **Sparse solutions:** Samples correctly classified with sufficient margin contribute zero loss, leading to sparse support vectors.\r\n\r\n- **Not differentiable at 1:** Has a kink at y\\_true \\* y\\_pred = 1, but subgradients can be used.\r\n\r\n**When to use**\r\n\r\nHinge Loss is used in SVMs for binary classification tasks. It is preferred when you want maximum margin classification.\r\n\r\n\r\n</details>",
+      "short_text": "Calculate Hinge Loss",
+      "difficulty": "EASY",
+      "function_name": "hinge_loss",
+      "param_names": [
+        "y_true",
+        "y_pred"
+      ],
+      "starter_code": "import numpy as np\n\ndef hinge_loss(y_true, y_pred):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef hinge_loss(y_true, y_pred):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    loss = np.maximum(0, 1 - y_true * y_pred)\n    return round(float(np.mean(loss)), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1,
+              1,
+              -1
+            ],
+            "y_pred": [
+              0.9,
+              -0.8,
+              1.2,
+              -1.0
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              1,
+              1
+            ],
+            "y_pred": [
+              2.0,
+              3.0,
+              1.5
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1
+            ],
+            "y_pred": [
+              1.0,
+              -1.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1
+            ],
+            "y_pred": [
+              -1.0,
+              1.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1
+            ],
+            "y_pred": [
+              0.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1,
+              1,
+              -1
+            ],
+            "y_pred": [
+              5.0,
+              -5.0,
+              5.0,
+              -5.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              1,
+              1,
+              1
+            ],
+            "y_pred": [
+              0.5,
+              0.5,
+              0.5,
+              0.5
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              -1,
+              -1,
+              -1
+            ],
+            "y_pred": [
+              0.1,
+              0.2,
+              0.3
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1,
+              1
+            ],
+            "y_pred": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              -1,
+              1,
+              -1,
+              1
+            ],
+            "y_pred": [
+              1.5,
+              -2.0,
+              0.5,
+              -0.5,
+              1.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    }
+  ]
+}

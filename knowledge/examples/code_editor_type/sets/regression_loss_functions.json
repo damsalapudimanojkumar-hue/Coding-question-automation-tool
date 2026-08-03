@@ -1,0 +1,577 @@
+{
+  "set_name": "Regression Loss Functions",
+  "topic": "Regression Loss Functions",
+  "questions": [
+    {
+      "question_text": "Write a Python function that calculates the **Mean Squared Error (MSE)** between actual and predicted values. MSE measures the average of the squared differences between predictions and actual values.\n\nThe MSE formula is:\n\n![MSE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/MSE.png)\n\n**Parameters**\n- `y_true` (list[float]): Actual values\n- `y_pred` (list[float]): Predicted values\n\n**Returns**\n- float: The MSE value, rounded to four decimal places\n\n<details>\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\n\n---\n\n**Understanding Mean Squared Error**\n\nMSE is one of the most widely used loss functions for regression models. It measures how far predictions deviate from actual values by squaring the errors.\n\n**Mathematical Definition**\n\n![MSE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/MSE.png)\n\nIt takes the squared difference between each actual and predicted value, then averages them.\n\n**Characteristics**\n\n- **Always non-negative:** MSE is 0 or positive. A value of 0 means perfect predictions.\n\n- **Penalizes large errors:** Because errors are squared, larger errors contribute disproportionately more than smaller ones.\n\n- **Different unit from target:** If predicting house prices in dollars, MSE is in dollars squared.\n\n- **Differentiable:** MSE is smooth and differentiable everywhere, making it ideal for gradient-based optimization.\n\n**MAE vs MSE**\n\n- MAE treats all errors equally. MSE penalizes large errors more.\n- MAE is more robust to outliers. MSE is more sensitive to outliers.\n- MSE is preferred when large errors are particularly undesirable.\n\n---\n\n</details>",
+      "short_text": "Calculate Mean Squared Error",
+      "difficulty": "EASY",
+      "function_name": "mean_squared_error",
+      "param_names": [
+        "y_true",
+        "y_pred"
+      ],
+      "starter_code": "import numpy as np\n\ndef mean_squared_error(y_true, y_pred):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef mean_squared_error(y_true, y_pred):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    return round(float(np.mean((y_true - y_pred) ** 2)), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              3,
+              -0.5,
+              2,
+              7
+            ],
+            "y_pred": [
+              2.5,
+              0.0,
+              2,
+              8
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "y_pred": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              1,
+              1,
+              1
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              5
+            ],
+            "y_pred": [
+              3
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              -1,
+              -2,
+              -3
+            ],
+            "y_pred": [
+              1,
+              2,
+              3
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              10,
+              20,
+              30,
+              40,
+              50
+            ],
+            "y_pred": [
+              12,
+              18,
+              33,
+              37,
+              55
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1.5,
+              2.5,
+              3.5
+            ],
+            "y_pred": [
+              1.0,
+              3.0,
+              4.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              100,
+              200,
+              300
+            ],
+            "y_pred": [
+              100,
+              200,
+              300
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3
+            ],
+            "y_pred": [
+              4,
+              5,
+              6
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    },
+    {
+      "question_text": "Write a Python function that calculates the **Mean Absolute Error (MAE)** between actual and predicted values. MAE measures the average magnitude of errors in predictions without considering their direction.\r\n\r\nThe MAE formula is:\r\n\r\n![MAE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/MAE.png)\r\n\r\n**Parameters**\r\n\r\n- `y_true` (list[float]): Actual values\r\n- `y_pred` (list[float]): Predicted values\r\n\r\n**Returns**\r\n\r\n- float: The MAE value, rounded to four decimal places\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\r\n\r\n---\r\n\r\n**Understanding Mean Absolute Error**\r\n\r\nMAE is one of the most commonly used metrics for evaluating regression models. It tells you on average how far off your predictions are from the actual values.\r\n\r\n**Mathematical Definition**\r\n\r\n![MAE Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/MAE.png)\r\n\r\nIt takes the absolute difference between each actual and predicted value, then averages them.\r\n\r\n**Characteristics**\r\n\r\n- **Always non-negative:** MAE is 0 or positive. A value of 0 means perfect predictions.\r\n\r\n- **Same unit as target:** If you're predicting house prices in dollars, MAE is also in dollars.\r\n\r\n- **Robust to outliers:** Unlike MSE, MAE does not square errors so large errors don't dominate.\r\n\r\n- **Easy to interpret:** An MAE of 5 means predictions are off by 5 units on average.\r\n\r\n**When to use**\r\n\r\nMAE is preferred when you want a straightforward measure of prediction error and when all errors should be treated equally regardless of size.\r\n\r\n---\r\n\r\n</details>",
+      "short_text": "Calculate Mean Absolute Error",
+      "difficulty": "EASY",
+      "function_name": "mean_absolute_error",
+      "param_names": [
+        "y_true",
+        "y_pred"
+      ],
+      "starter_code": "import numpy as np\n\ndef mean_absolute_error(y_true, y_pred):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef mean_absolute_error(y_true, y_pred):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    return round(float(np.mean(np.abs(y_true - y_pred))), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              3,
+              -0.5,
+              2,
+              7
+            ],
+            "y_pred": [
+              2.5,
+              0.0,
+              2,
+              8
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "y_pred": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              1,
+              1,
+              1
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              5
+            ],
+            "y_pred": [
+              3
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              -1,
+              -2,
+              -3
+            ],
+            "y_pred": [
+              1,
+              2,
+              3
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              10,
+              20,
+              30,
+              40,
+              50
+            ],
+            "y_pred": [
+              12,
+              18,
+              33,
+              37,
+              55
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1.5,
+              2.5,
+              3.5
+            ],
+            "y_pred": [
+              1.0,
+              3.0,
+              4.0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              100,
+              200,
+              300
+            ],
+            "y_pred": [
+              100,
+              200,
+              300
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10
+            ],
+            "y_pred": [
+              1.5,
+              2.5,
+              3.5,
+              4.5,
+              5.5,
+              6.5,
+              7.5,
+              8.5,
+              9.5,
+              10.5
+            ]
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    },
+    {
+      "question_text": "Write a Python function that calculates the **Huber Loss** between actual and predicted values. Huber Loss combines the best aspects of MSE and MAE, it is quadratic for small errors and linear for large errors, controlled by a threshold parameter delta.\r\n\r\nThe Huber Loss formula is:\r\n\r\n![Huber Loss Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/Huber_loss.png)\r\n\r\nThe final Huber Loss is the mean of all individual losses.\r\n\r\n**Parameters**\r\n\r\n- `y_true` (list[float]): Actual values\r\n- `y_pred` (list[float]): Predicted values\r\n- `delta` (float): Threshold where loss transitions from quadratic to linear (default = 1.0)\r\n\r\n**Returns**\r\n\r\n- float: The Huber Loss value, rounded to four decimal places\r\n\r\n<details>\r\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\r\n\r\n---\r\n\r\n**Understanding Huber Loss**\r\n\r\nHuber Loss is a robust loss function that is less sensitive to outliers than MSE while still being differentiable near zero like MSE.\r\n\r\n**How it works**\r\n\r\n- For **small errors** (|error| \u2264 \u03b4): Behaves like MSE \u2014 quadratic penalty. This ensures smooth gradients near zero.\r\n- For **large errors** (|error| > \u03b4): Behaves like MAE \u2014 linear penalty. This prevents outliers from dominating the loss.\r\n\r\n**The delta parameter**\r\n\r\n- **Small \u03b4:** More like MAE \u2014 robust to outliers but less smooth.\r\n- **Large \u03b4:** More like MSE \u2014 smooth but sensitive to outliers.\r\n- \u03b4 controls the transition point between quadratic and linear behavior.\r\n\r\n**Characteristics**\r\n\r\n- **Best of both worlds:** Combines MSE smoothness with MAE robustness.\r\n\r\n- **Differentiable everywhere:** Unlike MAE which has a kink at zero.\r\n\r\n- **Tunable:** The delta parameter lets you control sensitivity to outliers.\r\n\r\n**When to use**\r\n\r\nHuber Loss is preferred when your data has outliers but you still want smooth gradients for optimization. Commonly used in robust regression and reinforcement learning.\r\n\r\n---\r\n\r\n</details>",
+      "short_text": "Calculate Huber Loss",
+      "difficulty": "MEDIUM",
+      "function_name": "huber_loss",
+      "param_names": [
+        "y_true",
+        "y_pred",
+        "delta"
+      ],
+      "starter_code": "import numpy as np\n\ndef huber_loss(y_true, y_pred, delta=1.0):\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\n\ndef huber_loss(y_true, y_pred, delta=1.0):\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    error = np.abs(y_true - y_pred)\n    loss = np.where(error <= delta,\n                    0.5 * error ** 2,\n                    delta * (error - 0.5 * delta))\n    return round(float(np.mean(loss)), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "y_true": [
+              2.0,
+              3.0,
+              4.0
+            ],
+            "y_pred": [
+              2.5,
+              2.0,
+              4.0
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "y_pred": [
+              1,
+              2,
+              3,
+              4
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": false,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              3,
+              -0.5,
+              2,
+              7
+            ],
+            "y_pred": [
+              2.5,
+              0.0,
+              2,
+              8
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3
+            ],
+            "y_pred": [
+              4,
+              5,
+              6
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3
+            ],
+            "y_pred": [
+              1.1,
+              2.2,
+              3.3
+            ],
+            "delta": 0.5
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0
+            ],
+            "y_pred": [
+              10
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              0,
+              0,
+              0
+            ],
+            "y_pred": [
+              0,
+              0,
+              0
+            ],
+            "delta": 1.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              1,
+              2,
+              3
+            ],
+            "y_pred": [
+              4,
+              5,
+              6
+            ],
+            "delta": 5.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              10,
+              20,
+              30
+            ],
+            "y_pred": [
+              10,
+              20,
+              30
+            ],
+            "delta": 0.1
+          },
+          "is_hidden": true,
+          "weightage": 10
+        },
+        {
+          "inputs": {
+            "y_true": [
+              -1,
+              -2,
+              -3
+            ],
+            "y_pred": [
+              1,
+              2,
+              3
+            ],
+            "delta": 2.0
+          },
+          "is_hidden": true,
+          "weightage": 10
+        }
+      ]
+    }
+  ]
+}

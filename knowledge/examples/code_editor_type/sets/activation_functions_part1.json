@@ -1,0 +1,208 @@
+{
+  "set_name": "Activation Functions",
+  "topic": "Activation Functions",
+  "questions": [
+    {
+      "question_text": "Write a Python function that computes the output of the sigmoid activation function given a single input value `z`. The function should return the output rounded to four decimal places.\n\nThe sigmoid function is defined as:\n\n![Sigmoid Formula](https://new-assets.ccbp.in/frontend/content/aiml/!0XIIT/sigmoid.png)\n\n**Parameters**\n- `z` (float): A single real-valued number\n\n**Returns**\n- float: The sigmoid output, rounded to four decimal places",
+      "short_text": "Compute Sigmoid Activation",
+      "difficulty": "EASY",
+      "function_name": "sigmoid",
+      "param_names": [
+        "z"
+      ],
+      "starter_code": "import numpy as np\ndef sigmoid(z: float) -> float:\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\ndef sigmoid(z):\n    result = 1 / (1 + np.exp(-z))\n    return round(float(result), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "z": 0.0
+          },
+          "is_hidden": false,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 1.0
+          },
+          "is_hidden": false,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -1.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 0.5
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -5.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 5.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 10.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -10.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 100.0
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": -100.0
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": 0.001
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": -0.001
+          },
+          "is_hidden": true,
+          "weightage": 9
+        }
+      ]
+    },
+    {
+      "question_text": "Write a Python function that computes the output of the **tanh (hyperbolic tangent) activation function** given a single input value `z`. The function should return the output rounded to four decimal places.\n\nThe tanh function is defined as:\n\n![Tanh Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/tanh_formula.png)\n\n**Parameters**\n- `z` (float): A single real-valued number\n\n**Returns**\n- float: The tanh output, rounded to four decimal places\n\n\n<details>\n<summary style=\"padding:8px 16px; background-color:#2196F3; color:white; border-radius:4px; cursor:pointer; display:inline-block; list-style:none;\">Learn about the Topic</summary>\n\n---\n\n**Understanding the Tanh Activation Function**\n\nThe tanh (hyperbolic tangent) activation function is widely used in neural networks, especially in hidden layers of RNNs and LSTMs. Unlike sigmoid which outputs values between 0 and 1, tanh maps any real-valued number into the range (\u22121, 1), making it zero-centered.\n\n**Mathematical Definition**\n\n![Tanh Formula](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/deep-learning/tanh_formula.png)\n\nwhere (z) is the input to the function.\n\n**Tanh Curve**\n\n![Tanh Curve](https://s3.ap-south-1.amazonaws.com/new-assets.ccbp.in/frontend/content/aiml/classical-ml/activation_4.png)\n\n**Characteristics**\n- **Output Range:** The output is always between \u22121 and 1.\n- **Zero-Centered:** Unlike sigmoid, the output is centered around 0, which helps in faster convergence during training.\n- **Shape:** The function has an \"S\" shaped curve, symmetric around the origin.\n- **Gradient:** The gradient is highest near (z = 0) and vanishes as (z) moves away from 0 in either direction.\n\nThe tanh function is particularly useful in hidden layers of recurrent neural networks (RNNs) and LSTMs where zero-centered outputs help with learning sequential dependencies.\n\n---\n\n</details>",
+      "short_text": "Compute Tanh Activation",
+      "difficulty": "EASY",
+      "function_name": "tanh",
+      "param_names": [
+        "z"
+      ],
+      "starter_code": "import numpy as np\ndef tanh(z: float) -> float:\n\t# Your code here\n\tpass",
+      "solution_code": "import numpy as np\ndef tanh(z):\n    result = (np.exp(z) - np.exp(-z)) / (np.exp(z) + np.exp(-z))\n    return round(float(result), 4)",
+      "language": "PYTHON38_DATASCIENCE",
+      "time_limit": 4.0,
+      "rounding": 4,
+      "library": "numpy",
+      "test_definitions": [
+        {
+          "inputs": {
+            "z": 0.0
+          },
+          "is_hidden": false,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 1.0
+          },
+          "is_hidden": false,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -1.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 0.5
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -5.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 5.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 10.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": -10.0
+          },
+          "is_hidden": true,
+          "weightage": 8
+        },
+        {
+          "inputs": {
+            "z": 100.0
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": -100.0
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": 0.001
+          },
+          "is_hidden": true,
+          "weightage": 9
+        },
+        {
+          "inputs": {
+            "z": -0.001
+          },
+          "is_hidden": true,
+          "weightage": 9
+        }
+      ]
+    }
+  ]
+}

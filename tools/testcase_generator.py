@@ -748,8 +748,18 @@ if __name__ == "__main__":
             zip_path = output_path if output_path.endswith(".zip") else os.path.splitext(output_path)[0] + ".zip"
 
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr("questions.json", json.dumps(full_json, indent=2))
+                zf.writestr("coding_questions.json", json.dumps(full_json, indent=2))
                 zf.writestr("question_sets_questions.json", json.dumps(question_sets_json, indent=2))
+
+            # Also write the two deliverable JSONs LOOSE next to the zip. The zip is what
+            # you upload to the platform; the loose copies are what the durable library
+            # (GitHub) stores as readable text, so pushing to the library never needs to
+            # crack the zip open.
+            out_dir = os.path.dirname(zip_path) or "."
+            with open(os.path.join(out_dir, "coding_questions.json"), "w", encoding="utf-8") as fh:
+                json.dump(full_json, fh, indent=2)
+            with open(os.path.join(out_dir, "question_sets_questions.json"), "w", encoding="utf-8") as fh:
+                json.dump(question_sets_json, fh, indent=2)
 
             total_score = question_object["total_score"]
             print(f"[OK] Generated {len(self.test_cases)} test cases -> {zip_path}")
@@ -759,7 +769,7 @@ if __name__ == "__main__":
                 f"Hidden: {sum(1 for tc in self.test_cases if tc['is_hidden'])}"
             )
             print(f"   Question ID: {question_id}")
-            print(f"   Zip contains: questions.json, question_sets_questions.json")
+            print(f"   Zip contains: coding_questions.json, question_sets_questions.json")
 
         return full_json
 
@@ -831,7 +841,7 @@ def generate_bundle(configs: list, output_path: str) -> dict:
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     zip_path = output_path if output_path.endswith(".zip") else os.path.splitext(output_path)[0] + ".zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("questions.json", json.dumps(questions, indent=2))
+        zf.writestr("coding_questions.json", json.dumps(questions, indent=2))
         zf.writestr("question_sets_questions.json", json.dumps(set_maps, indent=2))
     print(f"[OK] Generated bundle of {len(questions)} questions -> {zip_path}")
     return {"questions": questions, "question_sets": set_maps}

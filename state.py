@@ -13,6 +13,7 @@ class AssignmentState(TypedDict):
     assignment_type: str                  # "tabular" | "nlp" | "cv"
     config_type: str                      # "vscode" (notebook/exec) | "code_editor" (function/DSA-style)
     assignment_code: Optional[str]        # short code (SLR, REG, BAG...) suffixing data/gt/zip files
+    use_research: Optional[bool]          # whether the research node runs (default True)
 
     # ── Agent 0: Wiki Loader ───────────────────────────────────────────────
     wiki_research_context: Optional[str]
@@ -62,6 +63,13 @@ class AssignmentState(TypedDict):
 
     # ── Agent: Solution + File Generator (absorbs your existing Claude Project) ──
     generated_bundle: Optional[Dict]      # {filename: content} - solution.ipynb, conftest.py, etc.
+
+    # ── Agent 3 (vscode): Evaluation Designer outputs ──────────────────────
+    approved_test_cases: Optional[str]    # test cases approved after HITL
+    generated_files: Optional[List]       # per-file report: [{name, exists, size_kb}, ...]
+    generated_files_path: Optional[str]   # workspace where the assignment files were written
+    question_file: Optional[str]          # path to the generated question file
+    evaluation_complete: Optional[bool]   # True when Agent 3 finished
 
     # ── Agent: Verification Loop ───────────────────────────────────────────
     verification_report: Optional[str]    # pytest results against reference + lazy solutions
