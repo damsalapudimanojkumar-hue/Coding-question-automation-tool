@@ -1,0 +1,198 @@
+[
+  {
+    "test_cases": [
+      {
+        "id": "144578e2-904a-4af1-8487-252dba54a79f",
+        "input": "[[[1.0, 2.0, 3.0]]]",
+        "output": "[[0.09, 0.2447, 0.6652]]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 1
+      },
+      {
+        "id": "f5569551-61b3-4e55-ad49-f3eda50abf9b",
+        "input": "[[[1.0, 2.0, 3.0], [1.0, 1.0, 1.0]]]",
+        "output": "[[0.09, 0.2447, 0.6652], [0.3333, 0.3333, 0.3333]]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 2
+      },
+      {
+        "id": "f9a7ed47-33ca-4cf5-a09a-84186f705a3b",
+        "input": "[[[0.0, 0.0, 0.0]]]",
+        "output": "[[0.3333, 0.3333, 0.3333]]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 3
+      },
+      {
+        "id": "22fb32ca-594b-4928-b7e8-f087cd73bea2",
+        "input": "[[[-1.0, 0.0, 1.0], [2.0, -2.0, 0.0]]]",
+        "output": "[[0.09, 0.2447, 0.6652], [0.8668, 0.0159, 0.1173]]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 4
+      },
+      {
+        "id": "4c090f96-ce05-4864-9d3f-53f449b9109f",
+        "input": "[[[1000.0, 1001.0, 1002.0]]]",
+        "output": "[[0.09, 0.2447, 0.6652]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 5
+      },
+      {
+        "id": "0650f541-1474-46ac-9bf2-b83efd1fdd6a",
+        "input": "[[[-1000.0, -1001.0, -1002.0]]]",
+        "output": "[[0.6652, 0.2447, 0.09]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 6
+      },
+      {
+        "id": "82de6a72-d27e-4711-a17a-9fb1b985a550",
+        "input": "[[[5.0]]]",
+        "output": "[[1.0]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 7
+      },
+      {
+        "id": "0da7492d-5a84-4843-8ffe-ff8a8fd7f4ed",
+        "input": "[[[10.0, 0.0, 0.0, 0.0]]]",
+        "output": "[[0.9999, 0.0, 0.0, 0.0]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 8
+      },
+      {
+        "id": "28f4ceec-95e2-4563-91d0-5010daa674a8",
+        "input": "[[[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]]]",
+        "output": "[[0.2689, 0.7311], [0.2689, 0.7311], [0.2689, 0.7311], [0.2689, 0.7311]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 9
+      },
+      {
+        "id": "df71b050-68f2-488f-a86f-dbecc2ea67d8",
+        "input": "[[[0.1, 0.2, 0.3, 0.4, 0.5], [-0.5, -0.4, -0.3, -0.2, -0.1], [1.0, 2.0, 3.0, 4.0, 5.0]]]",
+        "output": "[[0.1621, 0.1792, 0.198, 0.2188, 0.2419], [0.1621, 0.1792, 0.198, 0.2188, 0.2419], [0.0117, 0.0317, 0.0861, 0.2341, 0.6364]]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 10
+      }
+    ],
+    "total_score": 100,
+    "question_type": "CODING",
+    "question_asked_by_companies_info": [],
+    "question": {
+      "difficulty": "EASY",
+      "content": "Write a Python function that computes the **numerically stable softmax** of a 2D array of logits. Softmax converts raw scores into a probability distribution over classes, and is used extensively in classification models.\n\nThe softmax formula for a single row vector z is:\n\n```\nsoftmax(z)_i = exp(z_i - max(z)) / sum(exp(z_j - max(z))  for all j)\n```\n\nSubtracting the row maximum before exponentiating is the standard numerical stability trick. It prevents overflow from large positive values and underflow from large negative values, while leaving the output mathematically identical to the naive formula.\n\n**Parameters**\n\n- `logits` (list[list[float]]): A 2D array of shape (N, C), where N is the number of samples and C is the number of classes. Each row contains the raw scores for one sample.\n\n**Requirements**\n\n- Apply softmax independently to each row (axis = -1).\n- Use the max-subtraction trick: subtract the row maximum from each element before exponentiating.\n- Do not use any built-in softmax function (e.g. `torch.nn.functional.softmax`, `scipy.special.softmax`).\n- Use only NumPy operations.\n\n**Returns**\n\n- list[list[float]]: A 2D array of the same shape as `logits`, where each row is a valid probability distribution (all values in [0, 1], summing to 1). Each value rounded to four decimal places.",
+      "short_text": "Stable Softmax Activation",
+      "multimedia": [],
+      "language": "ENGLISH",
+      "content_type": "MARKDOWN",
+      "question_id": "f9e0d719-e108-44f9-a496-d6cf6fcbb43a",
+      "default_tag_names": [
+        "EASY"
+      ],
+      "concept_tag_names": [],
+      "metadata": null
+    },
+    "coding_question_details": [
+      {
+        "code_content": "import numpy as np\n\ndef stable_softmax(logits: list[list[float]]) -> list[list[float]]:\n    # Your code here\n    pass",
+        "default_code": true,
+        "language": "PYTHON38_DATASCIENCE",
+        "code_id": "bdae3eb8-0c8b-4caa-a3c3-713d571163ca"
+      }
+    ],
+    "code_repository_details": null,
+    "language_code_repository_details": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "file_path_to_execute": "main.py",
+        "default_file_path_to_submit_code": "solution.py",
+        "code_repository": [
+          {
+            "file_name": "main.py",
+            "file_type": "FILE",
+            "file_content": "aW1wb3J0IGpzb24KaW1wb3J0IGluc3BlY3QKaW1wb3J0IG51bXB5IGFzIG5wCmltcG9ydCBzb2x1dGlvbgppbXBvcnQgaW1wb3J0bGliCgojIFJlbG9hZCBzb2x1dGlvbiAodXNlZnVsIGluIG5vdGVib29rcykKaW1wb3J0bGliLnJlbG9hZChzb2x1dGlvbikKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIENPTkZJRyAocGVyIHF1ZXN0aW9uKQojID09PT09PT09PT09PT09PT09PT09PT09PT09PT0KRlVOQ19OQU1FID0gInN0YWJsZV9zb2Z0bWF4IiAgICMgZnVuY3Rpb24gdW5kZXIgdGVzdAoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIFV0aWxpdGllcwojID09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCmRlZiBzYWZlX2pzb25fbG9hZHMocyk6CiAgICBzID0gcy5zdHJpcCgpCiAgICBpZiAocy5zdGFydHN3aXRoKCciJykgYW5kIHMuZW5kc3dpdGgoJyInKSkgb3IgKHMuc3RhcnRzd2l0aCgiJyIpIGFuZCBzLmVuZHN3aXRoKCInIikpOgogICAgICAgIHMgPSBzWzE6LTFdCiAgICBkYXRhID0ganNvbi5sb2FkcyhzKQogICAgaWYgaXNpbnN0YW5jZShkYXRhLCBzdHIpOgogICAgICAgIGRhdGEgPSBqc29uLmxvYWRzKGRhdGEpCiAgICByZXR1cm4gZGF0YQoKCmRlZiBzaG91bGRfY29udmVydF90b19udW1weSh2YWx1ZSk6CiAgICBpZiBub3QgaXNpbnN0YW5jZSh2YWx1ZSwgbGlzdCkgb3Igbm90IHZhbHVlOgogICAgICAgIHJldHVybiBGYWxzZQogICAgaWYgaXNpbnN0YW5jZSh2YWx1ZVswXSwgbGlzdCk6CiAgICAgICAgcmV0dXJuIFRydWUKICAgIHJldHVybiBhbGwoaXNpbnN0YW5jZSh4LCAoaW50LCBmbG9hdCkpIGZvciB4IGluIHZhbHVlKQoKCmRlZiBjb252ZXJ0X3ZhbHVlKHZhbHVlKToKICAgIGlmIHNob3VsZF9jb252ZXJ0X3RvX251bXB5KHZhbHVlKToKICAgICAgICByZXR1cm4gbnAuYXJyYXkodmFsdWUpCiAgICByZXR1cm4gdmFsdWUKCgpkZWYgbm9ybWFsaXplX291dHB1dChyZXN1bHQpOgogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIG5wLm5kYXJyYXkpOgogICAgICAgIHJlc3VsdCA9IHJlc3VsdC50b2xpc3QoKQogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIHR1cGxlKToKICAgICAgICByZXR1cm4gdHVwbGUobm9ybWFsaXplX291dHB1dChyKSBmb3IgciBpbiByZXN1bHQpCiAgICBkZWYgcm91bmRfaWZfZmxvYXQoeCk6CiAgICAgICAgcmV0dXJuIHJvdW5kKHgsIDQpIGlmIGlzaW5zdGFuY2UoeCwgZmxvYXQpIGVsc2UgeAogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIGxpc3QpOgogICAgICAgIGlmIHJlc3VsdCBhbmQgaXNpbnN0YW5jZShyZXN1bHRbMF0sIGxpc3QpOgogICAgICAgICAgICByZXR1cm4gW1tyb3VuZF9pZl9mbG9hdCh4KSBmb3IgeCBpbiByb3ddIGZvciByb3cgaW4gcmVzdWx0XQogICAgICAgIHJldHVybiBbcm91bmRfaWZfZmxvYXQoeCkgZm9yIHggaW4gcmVzdWx0XQogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIGZsb2F0KToKICAgICAgICByZXR1cm4gcm91bmQocmVzdWx0LCA0KQogICAgcmV0dXJuIHJlc3VsdAoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIE1haW4gRXZhbHVhdG9yCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKZGVmIG1haW4oKToKICAgIGlucHV0X3N0ciA9IGlucHV0KCkuc3RyaXAoKQogICAgZGF0YSA9IHNhZmVfanNvbl9sb2FkcyhpbnB1dF9zdHIpCgogICAgZnVuYyA9IGdldGF0dHIoc29sdXRpb24sIEZVTkNfTkFNRSkKICAgIHNpZyA9IGluc3BlY3Quc2lnbmF0dXJlKGZ1bmMpCiAgICBwYXJhbV9uYW1lcyA9IGxpc3Qoc2lnLnBhcmFtZXRlcnMua2V5cygpKQoKICAgIGlmIGlzaW5zdGFuY2UoZGF0YSwgZGljdCk6CiAgICAgICAga3dhcmdzID0ge30KICAgICAgICBmb3IgbmFtZSBpbiBwYXJhbV9uYW1lczoKICAgICAgICAgICAgaWYgbmFtZSBpbiBkYXRhOgogICAgICAgICAgICAgICAga3dhcmdzW25hbWVdID0gY29udmVydF92YWx1ZShkYXRhW25hbWVdKQogICAgICAgIHJlc3VsdCA9IGZ1bmMoKiprd2FyZ3MpCiAgICBlbGlmIGlzaW5zdGFuY2UoZGF0YSwgbGlzdCk6CiAgICAgICAgYXJncyA9IFtjb252ZXJ0X3ZhbHVlKHYpIGZvciB2IGluIGRhdGFdCiAgICAgICAgcmVzdWx0ID0gZnVuYygqYXJncykKICAgIGVsc2U6CiAgICAgICAgcmVzdWx0ID0gZnVuYyhjb252ZXJ0X3ZhbHVlKGRhdGEpKQoKICAgIHJlc3VsdCA9IG5vcm1hbGl6ZV9vdXRwdXQocmVzdWx0KQogICAgcHJpbnQoc3RyKHJlc3VsdCkpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIG1haW4oKQo="
+          }
+        ]
+      }
+    ],
+    "solutions": [
+      {
+        "order": 1,
+        "title": {
+          "content": "Code",
+          "content_type": "TEXT"
+        },
+        "description": {
+          "content": "",
+          "content_type": ""
+        },
+        "code_details": [
+          {
+            "code_content": "import numpy as np\n\ndef stable_softmax(logits: list[list[float]]) -> list[list[float]]:\n    x = np.array(logits, dtype=float)\n    x_max = np.max(x, axis=-1, keepdims=True)\n    shifted = x - x_max\n    exp_shifted = np.exp(shifted)\n    result = exp_shifted / np.sum(exp_shifted, axis=-1, keepdims=True)\n    return np.round(result, 4).tolist()",
+            "language": "PYTHON38_DATASCIENCE",
+            "default_code": true,
+            "code_id": "01732307-bf3b-40d4-84e9-ca333621f5b5"
+          }
+        ],
+        "complexity_analysis": {
+          "content": "",
+          "content_type": ""
+        }
+      }
+    ],
+    "hints": [],
+    "test_case_evaluation_metrics": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "time_limit_to_execute_in_seconds": 4.0
+      }
+    ]
+  }
+]
