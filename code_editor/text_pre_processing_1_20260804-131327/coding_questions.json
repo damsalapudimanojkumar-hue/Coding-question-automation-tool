@@ -1,0 +1,198 @@
+[
+  {
+    "test_cases": [
+      {
+        "id": "bed644a7-b0e8-4771-adfb-ca81b33cc820",
+        "input": "[[\"Hello World\", \"hello Python\"], []]",
+        "output": "{'hello': 2, 'python': 1, 'world': 1}",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 1
+      },
+      {
+        "id": "83b00f41-dd7f-4c9a-98ab-cbaf472630a8",
+        "input": "[[\"The cat sat on the mat\", \"The cat is fat\"], [\"the\", \"on\", \"is\"]]",
+        "output": "{'cat': 2, 'fat': 1, 'mat': 1, 'sat': 1}",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 2
+      },
+      {
+        "id": "275ac431-20a6-426d-b4fb-2a666eff4407",
+        "input": "[[\"I love NLP! NLP is great.\", \"Great tools for NLP.\"], [\"i\", \"is\", \"for\"]]",
+        "output": "{'great': 2, 'love': 1, 'nlp': 3, 'tools': 1}",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 3
+      },
+      {
+        "id": "234155d6-a229-4366-91c9-d3aeda2b4679",
+        "input": "[[\"Hello, World! 123\", \"foo bar baz\"], [\"bar\"]]",
+        "output": "{'baz': 1, 'foo': 1, 'hello': 1, 'world': 1}",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 4
+      },
+      {
+        "id": "a2443173-027d-47e2-9817-3f6e52622d00",
+        "input": "[[], [\"the\", \"a\"]]",
+        "output": "{}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 5
+      },
+      {
+        "id": "f9ac03b9-c5eb-4d37-8eb0-f435fa095fbd",
+        "input": "[[\"!!!  ### 123 @@@\"], []]",
+        "output": "{}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 6
+      },
+      {
+        "id": "7d1174d7-2b49-4bbc-ac12-a8b33cd91a16",
+        "input": "[[\"a a a a a\"], []]",
+        "output": "{'a': 5}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 7
+      },
+      {
+        "id": "097f6ba5-3d61-4296-b769-c5dc912651ce",
+        "input": "[[\"The the THE tHe\"], [\"the\"]]",
+        "output": "{}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 8
+      },
+      {
+        "id": "6b686f59-e1ab-4f50-ae8d-20bab347f6e7",
+        "input": "[[\"dogs and cats\", \"cats and birds\", \"birds and dogs and fish\"], [\"and\"]]",
+        "output": "{'birds': 2, 'cats': 2, 'dogs': 2, 'fish': 1}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 9
+      },
+      {
+        "id": "b5400c19-33fb-41b8-8f9e-d46e7e5c4df0",
+        "input": "[[\"Hello World!! It's a wonderful world.\", \"Python is GREAT for data-science!\", \"Data science and machine learning are great.\"], [\"it\", \"a\", \"is\", \"for\", \"and\", \"are\"]]",
+        "output": "{'data': 2, 'great': 2, 'hello': 1, 'learning': 1, 'machine': 1, 'python': 1, 's': 1, 'science': 2, 'wonderful': 1, 'world': 2}",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 10
+      }
+    ],
+    "total_score": 100,
+    "question_type": "CODING",
+    "question_asked_by_companies_info": [],
+    "question": {
+      "difficulty": "EASY",
+      "content": "Write a Python function that builds a **term frequency dictionary** from a small corpus of raw text strings. This is a common first step in text preprocessing pipelines, where noisy input must be cleaned before any downstream analysis.\n\nThe preprocessing steps applied to each document are:\n\n```\n1. Lowercase all characters\n2. Remove all characters that are not a letter (a-z) or a space\n3. Split on whitespace to produce tokens\n4. Remove tokens that appear in the provided stopwords list\n5. Count how many times each remaining token appears across all documents\n```\n\nThe result is a single dictionary mapping each surviving token to its total count over the entire corpus.\n\n**Parameters**\n\n- `corpus` (list[str]): A list of raw text strings (documents) to process\n- `stopwords` (list[str]): A list of words to exclude after tokenization\n\n**Requirements**\n\n- Apply all five steps in the order listed above\n- Do not use any external NLP libraries (no NLTK, no spaCy). Use only standard Python string methods and the `re` module\n- Tokens that become empty strings after cleaning must be discarded\n- Return tokens sorted alphabetically as keys in the output dictionary (use a regular Python dict with keys in sorted order)\n\n**Returns**\n\n- dict[str, int]: A dictionary mapping each cleaned, non-stopword token to its total count across the corpus, with keys in alphabetical order",
+      "short_text": "Term Frequency from Raw Corpus",
+      "multimedia": [],
+      "language": "ENGLISH",
+      "content_type": "MARKDOWN",
+      "question_id": "00a6a47e-e133-4182-b22f-75d1b4846f92",
+      "default_tag_names": [
+        "EASY"
+      ],
+      "concept_tag_names": [],
+      "metadata": null
+    },
+    "coding_question_details": [
+      {
+        "code_content": "import re\n\ndef build_term_frequency(corpus: list[str], stopwords: list[str]) -> dict[str, int]:\n    # Your code here\n    pass",
+        "default_code": true,
+        "language": "PYTHON38_DATASCIENCE",
+        "code_id": "d4ce83e0-3af8-4948-872a-235cf158610b"
+      }
+    ],
+    "code_repository_details": null,
+    "language_code_repository_details": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "file_path_to_execute": "main.py",
+        "default_file_path_to_submit_code": "solution.py",
+        "code_repository": [
+          {
+            "file_name": "main.py",
+            "file_type": "FILE",
+            "file_content": "aW1wb3J0IGpzb24KaW1wb3J0IGluc3BlY3QKaW1wb3J0IG51bXB5IGFzIG5wCmltcG9ydCBzb2x1dGlvbgppbXBvcnQgaW1wb3J0bGliCgojIFJlbG9hZCBzb2x1dGlvbiAodXNlZnVsIGluIG5vdGVib29rcykKaW1wb3J0bGliLnJlbG9hZChzb2x1dGlvbikKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIENPTkZJRyAocGVyIHF1ZXN0aW9uKQojID09PT09PT09PT09PT09PT09PT09PT09PT09PT0KRlVOQ19OQU1FID0gImJ1aWxkX3Rlcm1fZnJlcXVlbmN5IiAgICMgZnVuY3Rpb24gdW5kZXIgdGVzdAoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIFV0aWxpdGllcwojID09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCmRlZiBzYWZlX2pzb25fbG9hZHMocyk6CiAgICBzID0gcy5zdHJpcCgpCiAgICBpZiAocy5zdGFydHN3aXRoKCciJykgYW5kIHMuZW5kc3dpdGgoJyInKSkgb3IgKHMuc3RhcnRzd2l0aCgiJyIpIGFuZCBzLmVuZHN3aXRoKCInIikpOgogICAgICAgIHMgPSBzWzE6LTFdCiAgICBkYXRhID0ganNvbi5sb2FkcyhzKQogICAgaWYgaXNpbnN0YW5jZShkYXRhLCBzdHIpOgogICAgICAgIGRhdGEgPSBqc29uLmxvYWRzKGRhdGEpCiAgICByZXR1cm4gZGF0YQoKCmRlZiBzaG91bGRfY29udmVydF90b19udW1weSh2YWx1ZSk6CiAgICBpZiBub3QgaXNpbnN0YW5jZSh2YWx1ZSwgbGlzdCkgb3Igbm90IHZhbHVlOgogICAgICAgIHJldHVybiBGYWxzZQogICAgaWYgaXNpbnN0YW5jZSh2YWx1ZVswXSwgbGlzdCk6CiAgICAgICAgcmV0dXJuIFRydWUKICAgIHJldHVybiBhbGwoaXNpbnN0YW5jZSh4LCAoaW50LCBmbG9hdCkpIGZvciB4IGluIHZhbHVlKQoKCmRlZiBjb252ZXJ0X3ZhbHVlKHZhbHVlKToKICAgIGlmIHNob3VsZF9jb252ZXJ0X3RvX251bXB5KHZhbHVlKToKICAgICAgICByZXR1cm4gbnAuYXJyYXkodmFsdWUpCiAgICByZXR1cm4gdmFsdWUKCgpkZWYgbm9ybWFsaXplX291dHB1dChyZXN1bHQpOgogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIG5wLm5kYXJyYXkpOgogICAgICAgIHJlc3VsdCA9IHJlc3VsdC50b2xpc3QoKQogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIHR1cGxlKToKICAgICAgICByZXR1cm4gdHVwbGUobm9ybWFsaXplX291dHB1dChyKSBmb3IgciBpbiByZXN1bHQpCiAgICBkZWYgcm91bmRfaWZfZmxvYXQoeCk6CiAgICAgICAgcmV0dXJuIHJvdW5kKHgsIDQpIGlmIGlzaW5zdGFuY2UoeCwgZmxvYXQpIGVsc2UgeAogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIGxpc3QpOgogICAgICAgIGlmIHJlc3VsdCBhbmQgaXNpbnN0YW5jZShyZXN1bHRbMF0sIGxpc3QpOgogICAgICAgICAgICByZXR1cm4gW1tyb3VuZF9pZl9mbG9hdCh4KSBmb3IgeCBpbiByb3ddIGZvciByb3cgaW4gcmVzdWx0XQogICAgICAgIHJldHVybiBbcm91bmRfaWZfZmxvYXQoeCkgZm9yIHggaW4gcmVzdWx0XQogICAgaWYgaXNpbnN0YW5jZShyZXN1bHQsIGZsb2F0KToKICAgICAgICByZXR1cm4gcm91bmQocmVzdWx0LCA0KQogICAgcmV0dXJuIHJlc3VsdAoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIE1haW4gRXZhbHVhdG9yCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKZGVmIG1haW4oKToKICAgIGlucHV0X3N0ciA9IGlucHV0KCkuc3RyaXAoKQogICAgZGF0YSA9IHNhZmVfanNvbl9sb2FkcyhpbnB1dF9zdHIpCgogICAgZnVuYyA9IGdldGF0dHIoc29sdXRpb24sIEZVTkNfTkFNRSkKICAgIHNpZyA9IGluc3BlY3Quc2lnbmF0dXJlKGZ1bmMpCiAgICBwYXJhbV9uYW1lcyA9IGxpc3Qoc2lnLnBhcmFtZXRlcnMua2V5cygpKQoKICAgIGlmIGlzaW5zdGFuY2UoZGF0YSwgZGljdCk6CiAgICAgICAga3dhcmdzID0ge30KICAgICAgICBmb3IgbmFtZSBpbiBwYXJhbV9uYW1lczoKICAgICAgICAgICAgaWYgbmFtZSBpbiBkYXRhOgogICAgICAgICAgICAgICAga3dhcmdzW25hbWVdID0gY29udmVydF92YWx1ZShkYXRhW25hbWVdKQogICAgICAgIHJlc3VsdCA9IGZ1bmMoKiprd2FyZ3MpCiAgICBlbGlmIGlzaW5zdGFuY2UoZGF0YSwgbGlzdCk6CiAgICAgICAgYXJncyA9IFtjb252ZXJ0X3ZhbHVlKHYpIGZvciB2IGluIGRhdGFdCiAgICAgICAgcmVzdWx0ID0gZnVuYygqYXJncykKICAgIGVsc2U6CiAgICAgICAgcmVzdWx0ID0gZnVuYyhjb252ZXJ0X3ZhbHVlKGRhdGEpKQoKICAgIHJlc3VsdCA9IG5vcm1hbGl6ZV9vdXRwdXQocmVzdWx0KQogICAgcHJpbnQoc3RyKHJlc3VsdCkpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIG1haW4oKQo="
+          }
+        ]
+      }
+    ],
+    "solutions": [
+      {
+        "order": 1,
+        "title": {
+          "content": "Code",
+          "content_type": "TEXT"
+        },
+        "description": {
+          "content": "",
+          "content_type": ""
+        },
+        "code_details": [
+          {
+            "code_content": "import re\n\ndef build_term_frequency(corpus: list[str], stopwords: list[str]) -> dict[str, int]:\n    stopword_set = set(stopwords)\n    counts = {}\n    for doc in corpus:\n        lowered = doc.lower()\n        cleaned = re.sub(r'[^a-z ]', ' ', lowered)\n        tokens = cleaned.split()\n        for token in tokens:\n            if token and token not in stopword_set:\n                counts[token] = counts.get(token, 0) + 1\n    return dict(sorted(counts.items()))",
+            "language": "PYTHON38_DATASCIENCE",
+            "default_code": true,
+            "code_id": "3146ae5a-fe78-4734-99a2-fd918d89e764"
+          }
+        ],
+        "complexity_analysis": {
+          "content": "",
+          "content_type": ""
+        }
+      }
+    ],
+    "hints": [],
+    "test_case_evaluation_metrics": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "time_limit_to_execute_in_seconds": 4.0
+      }
+    ]
+  }
+]
