@@ -18,6 +18,7 @@ import re
 import sys
 import time
 import zipfile
+from datetime import datetime
 
 # Keep worker-thread prints (emoji banners) from crashing on Windows cp1252.
 try:
@@ -34,6 +35,7 @@ from tracing import observe, flush as trace_flush
 from claude_client import reset_cost, cost_summary
 from graph import build_pipeline_graph   # the pipeline is now a LangGraph StateGraph
 from tools import github_store            # durable question library (GitHub-backed)
+from tools.question_library import records_from_folder, build_question_set_bundle
 
 st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 
@@ -146,6 +148,7 @@ def render_save_to_library(kind, res):
         try:
             path = github_store.push_question(kind, res.get("topic", "") or "question", files)
             st.session_state[saved_key] = path
+            _load_library_records.clear()
             st.success(f"✅ Saved to GitHub: `{path}`")
         except Exception as e:  # noqa: BLE001 - surface any API/config error to the user
             st.error(f"Save failed: {e}")
@@ -198,50 +201,26 @@ def render_breadcrumb(is_codeeditor, status, pending, events):
     st.markdown("&nbsp;&nbsp;→&nbsp;&nbsp;".join(cells))
 
 
-def list_runs(limit=25):
-    """Every past run = a folder under outputs/. Return them newest-first. Cheap:
-    just a directory listing + modified-time; no zipping happens here."""
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
-    if not os.path.isdir(root):
-        return []
-    runs = []
-    for name in os.listdir(root):
-        path = os.path.join(root, name)
-        if os.path.isdir(path):
-            try:
-                runs.append({"name": name, "path": path, "mtime": os.path.getmtime(path)})
-            except OSError:
-                pass
-    runs.sort(key=lambda r: r["mtime"], reverse=True)
-    return runs[:limit]
+NAV_PAGES = (("generate", "📝 Generate Question"), ("library", "📚 Question Library"))
 
 
-def render_history_sidebar():
-    """Sidebar 'Past runs' picker. Only the SELECTED run is zipped (on demand), so
-    this stays cheap even with many runs in outputs/."""
+def render_sidebar_nav():
+    """Sidebar: build marker + one entry per screen.
+
+    The whole app is one of two screens, tracked by st.session_state.page:
+    'generate' (the default) or 'library'. Both entries live in the sidebar so
+    navigation sits in the same place whether a run is idle or in progress, and
+    the filled (primary) button shows which screen you are on. Switching pages
+    only touches 'page' — never 'ws' — so a running pipeline is unaffected.
+    """
     with st.sidebar:
         st.caption(f"build `{BUILD_VERSION}`")
-        with st.expander("📁 Past runs", expanded=False):
-            runs = list_runs()
-            if not runs:
-                st.caption("No past runs yet.")
-                return
-            names = [r["name"] for r in runs]
-            sel = st.selectbox("Open a run", names, key="hist_sel", label_visibility="collapsed")
-            run = next((r for r in runs if r["name"] == sel), None)
-            if not run:
-                return
-            files = sorted(f for f in os.listdir(run["path"])
-                           if os.path.isfile(os.path.join(run["path"], f)))
-            if files:
-                st.caption("Contains: " + ", ".join(files[:6]) + ("…" if len(files) > 6 else ""))
-            st.download_button(
-                "⬇ Download this run (.zip)",
-                data=zip_workspace(run["path"]),         # zips ONLY the selected folder
-                file_name=f"{sel}.zip",
-                mime="application/zip",
-                key=f"hist_dl_{sel}",
-            )
+        for key, label in NAV_PAGES:
+            active = st.session_state.page == key
+            if st.button(label, use_container_width=True, key=f"nav_{key}",
+                         type="primary" if active else "secondary"):
+                st.session_state.page = key
+                st.rerun()
 
 
 def render_research_body(ev):
@@ -273,15 +252,122 @@ def render_cost():
 
 
 # ── session state ──────────────────────────────────────────────────────────
+@st.cache_data(ttl=60, show_spinner=False)
+def _load_library_records():
+    """Read approved code-editor questions from the durable GitHub library."""
+    records, errors = [], []
+    try:
+        folders = github_store.list_questions("code_editor")
+    except Exception as exc:  # network/config errors belong in the UI, not a traceback
+        return [], [f"Could not load the GitHub library: {exc}"]
+    for folder in folders:
+        try:
+            records.extend(records_from_folder(
+                folder["path"], github_store.fetch_folder(folder["path"])))
+        except Exception as exc:  # one malformed folder must not hide the rest
+            errors.append(f"{folder['name']}: {exc}")
+    return records, errors
+
+
+def _library_date(folder_path: str) -> str:
+    match = re.search(r"_(\d{8}-\d{6})$", folder_path.rsplit("/", 1)[-1])
+    if not match:
+        return "Unknown"
+    try:
+        return datetime.strptime(match.group(1), "%Y%m%d-%H%M%S").strftime("%d %b %Y")
+    except ValueError:
+        return "Unknown"
+
+
+def _safe_set_filename(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_") or "question_set"
+
+
+def render_question_library():
+    """Full-page library: browse saved rows, select them, and combine their JSON."""
+    st.title("Question Library")
+    st.caption("Approved code-editor questions saved in the question-bank branch.")
+    if not github_store.available():
+        st.warning("Connect GitHub first: set GITHUB_TOKEN and GH_REPO in Streamlit Secrets.")
+        return
+
+    refresh_col, _ = st.columns([1, 6])
+    if refresh_col.button("Refresh library"):
+        _load_library_records.clear()
+        st.rerun()
+    with st.spinner("Loading saved questions from GitHub..."):
+        records, errors = _load_library_records()
+    if errors:
+        st.warning("Some saved folders could not be read: " + "; ".join(errors))
+    if not records:
+        st.info("No saved code-editor questions yet. Generate a question, then click Save to Library.")
+        return
+
+    selected_keys = set(st.session_state.get("library_selected_keys", []))
+    # Keep version one intentionally simple: every saved question is visible.
+    # Search and filters can return when the library is large enough to need them.
+    visible = list(records)
+    visible.sort(key=lambda r: r["folder_path"], reverse=True)
+    display = [{
+        "Select": r["key"] in selected_keys,
+        "Title": r["title"],
+        "Difficulty": r["difficulty"],
+        "Library": r["library"],
+        "Saved": _library_date(r["folder_path"]),
+        "Key": r["key"],
+    } for r in visible]
+    edited = st.data_editor(
+        display, hide_index=True, use_container_width=True,
+        disabled=["Title", "Difficulty", "Library", "Saved", "Key"],
+        column_config={
+            "Select": st.column_config.CheckboxColumn("Select", width="small"),
+            "Key": None,
+        }, key="library_table",
+    )
+    displayed_keys = {row["Key"] for row in display}
+    selected_keys.difference_update(displayed_keys)
+    selected_keys.update(row["Key"] for row in edited if row["Select"])
+    st.session_state.library_selected_keys = list(selected_keys)
+
+    # Set order follows the table top-to-bottom, so the sequence you see on
+    # screen is the sequence that ships. Sorting by title here would let
+    # spelling decide the order of an assignment set.
+    selected = [r for r in visible if r["key"] in selected_keys]
+    st.divider()
+    st.subheader(f"Selected questions ({len(selected)})")
+    if not selected:
+        st.caption("Select one or more rows above to create a combined question set.")
+        return
+    for position, record in enumerate(selected, 1):
+        st.markdown(f"{position}. {record['title']}")
+
+    set_name = st.text_input("Question set name", "Selected question set")
+    try:
+        bundle = build_question_set_bundle(selected)
+    except ValueError as exc:
+        st.error(f"Cannot create this set: {exc}")
+        return
+    st.download_button("Download combined ZIP", bundle["question_set.zip"],
+                       file_name=f"{_safe_set_filename(set_name)}.zip",
+                       mime="application/zip", type="primary")
+
+
 if "ws" not in st.session_state:
     st.session_state.ws = None
+if "page" not in st.session_state:
+    st.session_state.page = "generate"   # generation is the default screen
 
-st.title("DSML Assignment Pipeline")
 ws = st.session_state.ws
 
-# Sidebar 'Past runs' + build marker — rendered here (before the start/running split)
-# so it's available on every screen.
-render_history_sidebar()
+# Rendered before the page split (and before the start/running split) so the
+# nav sits in the same place on every screen and a click lands on this pass.
+render_sidebar_nav()
+
+if st.session_state.page == "library":
+    render_question_library()
+    st.stop()
+
+st.title("DSML Assignment Pipeline")
 
 def render_recovery_panel():
     """On the start screen, surface an interrupted run (from autosave) and let the
