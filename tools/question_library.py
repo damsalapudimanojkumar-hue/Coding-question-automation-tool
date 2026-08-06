@@ -85,3 +85,43 @@ def _library_name(question: dict[str, Any]) -> str:
     if details and isinstance(details[0], dict):
         return details[0].get("language") or "Python"
     return "Python"
+
+
+def vscode_record_from_folder(folder_path: str, files: dict[str, bytes]) -> dict[str, Any]:
+    """Build one library record for a saved notebook/vscode question folder.
+
+    Unlike a code-editor folder (many questions in one coding_questions.json),
+    a vscode folder is a single whole assignment workspace: notebook + tests +
+    one <question_id>.json metadata file at the folder root. Difficulty lives
+    under "toughness" here, not "difficulty" - a different field name than the
+    code-editor schema uses for the same idea.
+    """
+    meta: dict[str, Any] = {}
+    for relpath, raw in files.items():
+        if "/" in relpath or not relpath.endswith(".json"):
+            continue  # only the root-level metadata file; tests/ has no question info
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        candidate = data[0] if isinstance(data, list) and data and isinstance(data[0], dict) else data
+        if isinstance(candidate, dict) and candidate.get("question_id"):
+            meta = candidate
+            break
+
+    return {
+        "key": folder_path,
+        "folder_path": folder_path,
+        "files": files,
+        "title": meta.get("short_text") or folder_path.rsplit("/", 1)[-1],
+        "difficulty": meta.get("toughness") or "Unknown",
+    }
+
+
+def build_vscode_bundle(files: dict[str, bytes]) -> bytes:
+    """Zip a saved vscode folder's files back into a downloadable workspace."""
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+        for relpath, content in files.items():
+            zf.writestr(relpath, content)
+    return archive.getvalue()

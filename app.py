@@ -35,7 +35,10 @@ from tracing import observe, flush as trace_flush
 from claude_client import reset_cost, cost_summary
 from graph import build_pipeline_graph   # the pipeline is now a LangGraph StateGraph
 from tools import github_store            # durable question library (GitHub-backed)
-from tools.question_library import records_from_folder, build_question_set_bundle
+from tools.question_library import (
+    records_from_folder, build_question_set_bundle,
+    vscode_record_from_folder, build_vscode_bundle,
+)
 
 st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 
@@ -149,6 +152,7 @@ def render_save_to_library(kind, res):
             path = github_store.push_question(kind, res.get("topic", "") or "question", files)
             st.session_state[saved_key] = path
             _load_library_records.clear()
+            _load_vscode_records.clear()
             st.success(f"✅ Saved to GitHub: `{path}`")
         except Exception as e:  # noqa: BLE001 - surface any API/config error to the user
             st.error(f"Save failed: {e}")
@@ -269,6 +273,23 @@ def _load_library_records():
     return records, errors
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _load_vscode_records():
+    """Read approved notebook/vscode questions from the durable GitHub library."""
+    records, errors = [], []
+    try:
+        folders = github_store.list_questions("vscode")
+    except Exception as exc:  # network/config errors belong in the UI, not a traceback
+        return [], [f"Could not load the GitHub library: {exc}"]
+    for folder in folders:
+        try:
+            records.append(vscode_record_from_folder(
+                folder["path"], github_store.fetch_folder(folder["path"])))
+        except Exception as exc:  # one malformed folder must not hide the rest
+            errors.append(f"{folder['name']}: {exc}")
+    return records, errors
+
+
 def _library_date(folder_path: str) -> str:
     match = re.search(r"_(\d{8}-\d{6})$", folder_path.rsplit("/", 1)[-1])
     if not match:
@@ -283,10 +304,35 @@ def _safe_set_filename(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_") or "question_set"
 
 
+def render_vscode_library(records, errors):
+    """Notebook/vscode questions: one row per whole assignment workspace.
+
+    These don't combine into a set the way code-editor questions do (there's
+    no per-question JSON to merge - each folder IS one assignment), so each
+    row just re-zips its saved files for download.
+    """
+    st.subheader("Notebook / vscode questions")
+    if errors:
+        st.warning("Some saved notebook folders could not be read: " + "; ".join(errors))
+    if not records:
+        st.caption("No saved notebook questions yet.")
+        return
+    for record in sorted(records, key=lambda r: r["folder_path"], reverse=True):
+        c1, c2, c3, c4 = st.columns([4, 1, 2, 2])
+        c1.markdown(f"**{record['title']}**")
+        c2.caption(record["difficulty"])
+        c3.caption(_library_date(record["folder_path"]))
+        c4.download_button(
+            "Download ZIP", build_vscode_bundle(record["files"]),
+            file_name=f"{_safe_set_filename(record['title'])}.zip",
+            mime="application/zip", key=f"vscode_dl_{record['key']}",
+        )
+
+
 def render_question_library():
     """Full-page library: browse saved rows, select them, and combine their JSON."""
     st.title("Question Library")
-    st.caption("Approved code-editor questions saved in the question-bank branch.")
+    st.caption("Approved questions saved in the question-bank branch.")
     if not github_store.available():
         st.warning("Connect GitHub first: set GITHUB_TOKEN and GH_REPO in Streamlit Secrets.")
         return
@@ -294,13 +340,19 @@ def render_question_library():
     refresh_col, _ = st.columns([1, 6])
     if refresh_col.button("Refresh library"):
         _load_library_records.clear()
+        _load_vscode_records.clear()
         st.rerun()
     with st.spinner("Loading saved questions from GitHub..."):
         records, errors = _load_library_records()
+        vscode_records, vscode_errors = _load_vscode_records()
     if errors:
-        st.warning("Some saved folders could not be read: " + "; ".join(errors))
+        st.warning("Some saved code-editor folders could not be read: " + "; ".join(errors))
+
+    st.subheader("Code-editor questions")
     if not records:
         st.info("No saved code-editor questions yet. Generate a question, then click Save to Library.")
+        st.divider()
+        render_vscode_library(vscode_records, vscode_errors)
         return
 
     selected_keys = set(st.session_state.get("library_selected_keys", []))
@@ -337,19 +389,23 @@ def render_question_library():
     st.subheader(f"Selected questions ({len(selected)})")
     if not selected:
         st.caption("Select one or more rows above to create a combined question set.")
-        return
-    for position, record in enumerate(selected, 1):
-        st.markdown(f"{position}. {record['title']}")
+    else:
+        for position, record in enumerate(selected, 1):
+            st.markdown(f"{position}. {record['title']}")
 
-    set_name = st.text_input("Question set name", "Selected question set")
-    try:
-        bundle = build_question_set_bundle(selected)
-    except ValueError as exc:
-        st.error(f"Cannot create this set: {exc}")
-        return
-    st.download_button("Download combined ZIP", bundle["question_set.zip"],
-                       file_name=f"{_safe_set_filename(set_name)}.zip",
-                       mime="application/zip", type="primary")
+        set_name = st.text_input("Question set name", "Selected question set")
+        try:
+            bundle = build_question_set_bundle(selected)
+        except ValueError as exc:
+            st.error(f"Cannot create this set: {exc}")
+            bundle = None
+        if bundle:
+            st.download_button("Download combined ZIP", bundle["question_set.zip"],
+                               file_name=f"{_safe_set_filename(set_name)}.zip",
+                               mime="application/zip", type="primary")
+
+    st.divider()
+    render_vscode_library(vscode_records, vscode_errors)
 
 
 if "ws" not in st.session_state:
