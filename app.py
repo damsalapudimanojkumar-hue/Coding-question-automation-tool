@@ -304,6 +304,47 @@ def _safe_set_filename(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_") or "question_set"
 
 
+def _request_library_delete(kind: str, record: dict) -> None:
+    """Remember the clicked row, then confirm before changing GitHub."""
+    st.session_state.library_delete_candidate = {
+        "kind": kind,
+        "folder_path": record["folder_path"],
+        "title": record["title"],
+    }
+    st.rerun()
+
+
+def _render_library_delete_confirmation() -> None:
+    """Confirmation is deliberately separate from the row button: deletion is final."""
+    candidate = st.session_state.get("library_delete_candidate")
+    if not candidate:
+        return
+    st.warning(
+        f"Delete **{candidate['title']}** from the Library? This removes its complete "
+        "saved folder from GitHub and cannot be undone from this app."
+    )
+    cancel, confirm, _ = st.columns([1, 1, 5])
+    if cancel.button("Cancel", key="library_delete_cancel"):
+        st.session_state.library_delete_candidate = None
+        st.rerun()
+    if confirm.button("Delete permanently", type="primary", key="library_delete_confirm"):
+        try:
+            github_store.delete_question(candidate["kind"], candidate["folder_path"])
+        except Exception as exc:  # noqa: BLE001 - GitHub/API errors belong in the UI
+            st.error(f"Delete failed: {exc}")
+            return
+        removed_path = candidate["folder_path"]
+        st.session_state.library_selected_keys = [
+            key for key in st.session_state.get("library_selected_keys", [])
+            if not key.startswith(f"{removed_path}::")
+        ]
+        st.session_state.library_delete_candidate = None
+        st.session_state.library_notice = f"Deleted {candidate['title']} from the Library."
+        _load_library_records.clear()
+        _load_vscode_records.clear()
+        st.rerun()
+
+
 def render_vscode_library(records, errors):
     """Notebook/vscode questions: one row per whole assignment workspace.
 
@@ -318,7 +359,7 @@ def render_vscode_library(records, errors):
         st.caption("No saved notebook questions yet.")
         return
     for record in sorted(records, key=lambda r: r["folder_path"], reverse=True):
-        c1, c2, c3, c4 = st.columns([4, 1, 2, 2])
+        c1, c2, c3, c4, c5 = st.columns([4, 1, 2, 2, 1])
         c1.markdown(f"**{record['title']}**")
         c2.caption(record["difficulty"])
         c3.caption(_library_date(record["folder_path"]))
@@ -327,6 +368,8 @@ def render_vscode_library(records, errors):
             file_name=f"{_safe_set_filename(record['title'])}.zip",
             mime="application/zip", key=f"vscode_dl_{record['key']}",
         )
+        if c5.button("Delete", key=f"vscode_delete_{record['key']}"):
+            _request_library_delete("vscode", record)
 
 
 def render_question_library():
@@ -342,6 +385,10 @@ def render_question_library():
         _load_library_records.clear()
         _load_vscode_records.clear()
         st.rerun()
+    notice = st.session_state.pop("library_notice", None)
+    if notice:
+        st.success(notice)
+    _render_library_delete_confirmation()
     with st.spinner("Loading saved questions from GitHub..."):
         records, errors = _load_library_records()
         vscode_records, vscode_errors = _load_vscode_records()
@@ -360,25 +407,32 @@ def render_question_library():
     # Search and filters can return when the library is large enough to need them.
     visible = list(records)
     visible.sort(key=lambda r: r["folder_path"], reverse=True)
-    display = [{
-        "Select": r["key"] in selected_keys,
-        "Title": r["title"],
-        "Difficulty": r["difficulty"],
-        "Library": r["library"],
-        "Saved": _library_date(r["folder_path"]),
-        "Key": r["key"],
-    } for r in visible]
-    edited = st.data_editor(
-        display, hide_index=True, use_container_width=True,
-        disabled=["Title", "Difficulty", "Library", "Saved", "Key"],
-        column_config={
-            "Select": st.column_config.CheckboxColumn("Select", width="small"),
-            "Key": None,
-        }, key="library_table",
-    )
-    displayed_keys = {row["Key"] for row in display}
-    selected_keys.difference_update(displayed_keys)
-    selected_keys.update(row["Key"] for row in edited if row["Select"])
+    h1, h2, h3, h4, h5, h6 = st.columns([0.8, 4, 1.4, 2.4, 1.5, 1])
+    h1.caption("Select")
+    h2.caption("Title")
+    h3.caption("Difficulty")
+    h4.caption("Library")
+    h5.caption("Saved")
+    h6.caption("Action")
+    displayed_keys = set()
+    for record in visible:
+        displayed_keys.add(record["key"])
+        widget_key = f"library_select_{record['key']}"
+        if widget_key not in st.session_state:
+            st.session_state[widget_key] = record["key"] in selected_keys
+        c1, c2, c3, c4, c5, c6 = st.columns([0.8, 4, 1.4, 2.4, 1.5, 1])
+        checked = c1.checkbox("Select", key=widget_key, label_visibility="collapsed")
+        c2.markdown(f"**{record['title']}**")
+        c3.caption(record["difficulty"])
+        c4.caption(record["library"])
+        c5.caption(_library_date(record["folder_path"]))
+        if c6.button("Delete", key=f"code_editor_delete_{record['key']}"):
+            _request_library_delete("code_editor", record)
+        if checked:
+            selected_keys.add(record["key"])
+        else:
+            selected_keys.discard(record["key"])
+    selected_keys.intersection_update(displayed_keys)
     st.session_state.library_selected_keys = list(selected_keys)
 
     # Set order follows the table top-to-bottom, so the sequence you see on

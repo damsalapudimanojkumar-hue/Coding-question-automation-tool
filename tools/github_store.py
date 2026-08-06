@@ -122,6 +122,15 @@ def _put_file(path: str, content_bytes: bytes, message: str):
     return r.json()
 
 
+def _api(method: str, endpoint: str, **kwargs):
+    """Call GitHub's Git Data API for one atomic folder-level change."""
+    _, repo, _ = _cfg()
+    response = requests.request(method, f"{_API}/repos/{repo}{endpoint}",
+                                headers=_headers(), timeout=_TIMEOUT, **kwargs)
+    response.raise_for_status()
+    return response.json()
+
+
 # ── public API used by the app ─────────────────────────────────────────────
 def next_folder_name(kind: str, topic: str) -> str:
     """Build '<topic>_<N>_<timestamp>'. N = 1 + the highest existing N for this topic
@@ -164,6 +173,47 @@ def list_questions(kind: str) -> list:
     is not guaranteed by the API, so callers may sort by name. Returns [{name, path}]."""
     return [{"name": d["name"], "path": d["path"]}
             for d in _list_dir(kind) if d.get("type") == "dir"]
+
+
+def delete_question(kind: str, folder_path: str) -> None:
+    """Atomically remove one saved question folder from the configured library branch.
+
+    The GitHub Contents API deletes files one at a time, which could leave a
+    half-deleted vscode workspace if a request failed. This instead creates one
+    commit that removes every file below the folder together.
+    """
+    token, repo, branch = _cfg()
+    if not (token and repo):
+        raise RuntimeError("GITHUB_TOKEN / GH_REPO are not set.")
+    if kind not in {"code_editor", "vscode"}:
+        raise ValueError("Unknown question kind.")
+
+    expected_prefix = f"{kind}/"
+    if not folder_path.startswith(expected_prefix) or ".." in folder_path.split("/"):
+        raise ValueError("Invalid saved-question folder path.")
+
+    ref = _api("GET", f"/git/ref/heads/{branch}")
+    commit_sha = ref["object"]["sha"]
+    commit = _api("GET", f"/git/commits/{commit_sha}")
+    tree = _api("GET", f"/git/trees/{commit['tree']['sha']}",
+                params={"recursive": "1"})
+    prefix = f"{folder_path.rstrip('/')}/"
+    matches = [entry for entry in tree.get("tree", [])
+               if entry.get("type") == "blob" and entry.get("path", "").startswith(prefix)]
+    if not matches:
+        raise ValueError("This saved question no longer exists in the library.")
+
+    new_tree = _api("POST", "/git/trees", json={
+        "base_tree": commit["tree"]["sha"],
+        "tree": [{"path": entry["path"], "mode": entry["mode"],
+                  "type": "blob", "sha": None} for entry in matches],
+    })
+    new_commit = _api("POST", "/git/commits", json={
+        "message": f"Delete saved question {folder_path}",
+        "tree": new_tree["sha"],
+        "parents": [commit_sha],
+    })
+    _api("PATCH", f"/git/refs/heads/{branch}", json={"sha": new_commit["sha"], "force": False})
 
 
 def fetch_folder(path: str) -> dict:
