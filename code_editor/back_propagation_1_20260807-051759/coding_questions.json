@@ -1,0 +1,198 @@
+[
+  {
+    "test_cases": [
+      {
+        "id": "3923500f-c316-4747-8055-1be91458dcb5",
+        "input": "[[1.0, 2.0, 3.0], [1.5, 2.5, 3.5]]",
+        "output": "[1.0, 1.0, 1.0]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 1
+      },
+      {
+        "id": "599ec526-a30d-4b18-8f3f-c6bd24b6901c",
+        "input": "[[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]]",
+        "output": "[2.0, 4.0, 6.0]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 2
+      },
+      {
+        "id": "4858632d-4ede-4d6d-85e2-a8bdb8d207db",
+        "input": "[[3.0, 3.0, 3.0], [3.0, 3.0, 3.0]]",
+        "output": "[0.0, 0.0, 0.0]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 3
+      },
+      {
+        "id": "0c9b7489-6f93-4cb1-adf7-4b8db7661552",
+        "input": "[[5.0], [3.0]]",
+        "output": "[-4.0]",
+        "is_hidden": false,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 4
+      },
+      {
+        "id": "af7346fc-450b-4982-926a-c18eaa488841",
+        "input": "[[0.0], [0.0]]",
+        "output": "[0.0]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 5
+      },
+      {
+        "id": "6965f1b5-4732-4409-a34b-510442385cc3",
+        "input": "[[-1.0, -2.0, -3.0], [1.0, 2.0, 3.0]]",
+        "output": "[4.0, 8.0, 12.0]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 6
+      },
+      {
+        "id": "4504806d-3aa0-4a49-8833-3af77274d723",
+        "input": "[[1.0, 2.0], [-1.0, -2.0]]",
+        "output": "[-4.0, -8.0]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 7
+      },
+      {
+        "id": "05903f72-7e79-4aa1-80b4-daa82edcab06",
+        "input": "[[1000.0, 2000.0], [999.0, 2001.0]]",
+        "output": "[-2.0, 2.0]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 8
+      },
+      {
+        "id": "97dcea87-498c-4513-829b-c9df7c59a1cf",
+        "input": "[[0.0001, 0.0002], [0.0002, 0.0001]]",
+        "output": "[0.0002, -0.0002]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 9
+      },
+      {
+        "id": "a43ad53a-47f2-49f6-ae35-4726bd228dec",
+        "input": "[[1.0, 0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 0.0, 1.0, 0.0]]",
+        "output": "[-2.0, 2.0, -2.0, 2.0, -2.0]",
+        "is_hidden": true,
+        "weightage": 10,
+        "evaluation_type": "DEFAULT",
+        "display_text": null,
+        "criteria": null,
+        "tags": [],
+        "order": 10
+      }
+    ],
+    "total_score": 100,
+    "question_type": "CODING",
+    "question_asked_by_companies_info": [],
+    "question": {
+      "difficulty": "EASY",
+      "content": "Write a Python function that computes the **gradient of the Mean Squared Error (MSE) loss with respect to the output of a single neuron** during backpropagation. This is the elementary backward-pass operation that feeds the chain rule for updating weights in a neural network.\n\nThe MSE loss for a single sample is:\n\n```\nL = (y_pred - y_true)^2\n```\n\nThe gradient of L with respect to y_pred is:\n\n```\ndL/dy_pred = 2 * (y_pred - y_true)\n```\n\nGiven y_pred and y_true, return dL/dy_pred for each sample.\n\n**Parameters**\n\n- `y_true` (list[float]): True target values\n- `y_pred` (list[float]): Predicted output values from the neuron\n\n**Requirements**\n\n- Compute the element-wise gradient using the formula above\n- Return the result as a list of floats rounded to four decimal places\n- Do not use any autograd or automatic differentiation library\n\n**Returns**\n\n- list[float]: The gradient of the MSE loss with respect to each predicted value, rounded to four decimal places",
+      "short_text": "Backprop: MSE Loss Gradient",
+      "multimedia": [],
+      "language": "ENGLISH",
+      "content_type": "MARKDOWN",
+      "question_id": "fc55a801-165b-43ec-aa9f-82759c1acc54",
+      "default_tag_names": [
+        "EASY"
+      ],
+      "concept_tag_names": [],
+      "metadata": null
+    },
+    "coding_question_details": [
+      {
+        "code_content": "import numpy as np\n\ndef mse_output_gradient(y_true: list[float], y_pred: list[float]) -> list[float]:\n    # Your code here\n    pass",
+        "default_code": true,
+        "language": "PYTHON38_DATASCIENCE",
+        "code_id": "5ecfb19e-c750-40a7-a694-c262fab70fd1"
+      }
+    ],
+    "code_repository_details": null,
+    "language_code_repository_details": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "file_path_to_execute": "main.py",
+        "default_file_path_to_submit_code": "solution.py",
+        "code_repository": [
+          {
+            "file_name": "main.py",
+            "file_type": "FILE",
+            "file_content": "aW1wb3J0IGpzb24KaW1wb3J0IGluc3BlY3QKaW1wb3J0IG51bXB5IGFzIG5wCmltcG9ydCBzb2x1dGlvbgppbXBvcnQgaW1wb3J0bGliCgojIFJlbG9hZCBzb2x1dGlvbiAodXNlZnVsIGluIG5vdGVib29rcykKaW1wb3J0bGliLnJlbG9hZChzb2x1dGlvbikKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIENPTkZJRyAocGVyIHF1ZXN0aW9uKQojID09PT09PT09PT09PT09PT09PT09PT09PT09PT0KRlVOQ19OQU1FID0gIm1zZV9vdXRwdXRfZ3JhZGllbnQiICAgIyBmdW5jdGlvbiB1bmRlciB0ZXN0CgoKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09CiMgVXRpbGl0aWVzCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKZGVmIHNhZmVfanNvbl9sb2FkcyhzKToKICAgIHMgPSBzLnN0cmlwKCkKICAgIGlmIChzLnN0YXJ0c3dpdGgoJyInKSBhbmQgcy5lbmRzd2l0aCgnIicpKSBvciAocy5zdGFydHN3aXRoKCInIikgYW5kIHMuZW5kc3dpdGgoIiciKSk6CiAgICAgICAgcyA9IHNbMTotMV0KICAgIGRhdGEgPSBqc29uLmxvYWRzKHMpCiAgICBpZiBpc2luc3RhbmNlKGRhdGEsIHN0cik6CiAgICAgICAgZGF0YSA9IGpzb24ubG9hZHMoZGF0YSkKICAgIHJldHVybiBkYXRhCgoKZGVmIHNob3VsZF9jb252ZXJ0X3RvX251bXB5KHZhbHVlKToKICAgIGlmIG5vdCBpc2luc3RhbmNlKHZhbHVlLCBsaXN0KSBvciBub3QgdmFsdWU6CiAgICAgICAgcmV0dXJuIEZhbHNlCiAgICBpZiBpc2luc3RhbmNlKHZhbHVlWzBdLCBsaXN0KToKICAgICAgICByZXR1cm4gVHJ1ZQogICAgcmV0dXJuIGFsbChpc2luc3RhbmNlKHgsIChpbnQsIGZsb2F0KSkgZm9yIHggaW4gdmFsdWUpCgoKZGVmIGNvbnZlcnRfdmFsdWUodmFsdWUpOgogICAgaWYgc2hvdWxkX2NvbnZlcnRfdG9fbnVtcHkodmFsdWUpOgogICAgICAgIHJldHVybiBucC5hcnJheSh2YWx1ZSkKICAgIHJldHVybiB2YWx1ZQoKCmRlZiBub3JtYWxpemVfb3V0cHV0KHJlc3VsdCk6CiAgICBpZiBpc2luc3RhbmNlKHJlc3VsdCwgbnAubmRhcnJheSk6CiAgICAgICAgcmVzdWx0ID0gcmVzdWx0LnRvbGlzdCgpCiAgICBpZiBpc2luc3RhbmNlKHJlc3VsdCwgdHVwbGUpOgogICAgICAgIHJldHVybiB0dXBsZShub3JtYWxpemVfb3V0cHV0KHIpIGZvciByIGluIHJlc3VsdCkKICAgIGRlZiByb3VuZF9pZl9mbG9hdCh4KToKICAgICAgICByZXR1cm4gcm91bmQoeCwgNCkgaWYgaXNpbnN0YW5jZSh4LCBmbG9hdCkgZWxzZSB4CiAgICBpZiBpc2luc3RhbmNlKHJlc3VsdCwgbGlzdCk6CiAgICAgICAgaWYgcmVzdWx0IGFuZCBpc2luc3RhbmNlKHJlc3VsdFswXSwgbGlzdCk6CiAgICAgICAgICAgIHJldHVybiBbW3JvdW5kX2lmX2Zsb2F0KHgpIGZvciB4IGluIHJvd10gZm9yIHJvdyBpbiByZXN1bHRdCiAgICAgICAgcmV0dXJuIFtyb3VuZF9pZl9mbG9hdCh4KSBmb3IgeCBpbiByZXN1bHRdCiAgICBpZiBpc2luc3RhbmNlKHJlc3VsdCwgZmxvYXQpOgogICAgICAgIHJldHVybiByb3VuZChyZXN1bHQsIDQpCiAgICByZXR1cm4gcmVzdWx0CgoKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09CiMgTWFpbiBFdmFsdWF0b3IKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09CgpkZWYgbWFpbigpOgogICAgaW5wdXRfc3RyID0gaW5wdXQoKS5zdHJpcCgpCiAgICBkYXRhID0gc2FmZV9qc29uX2xvYWRzKGlucHV0X3N0cikKCiAgICBmdW5jID0gZ2V0YXR0cihzb2x1dGlvbiwgRlVOQ19OQU1FKQogICAgc2lnID0gaW5zcGVjdC5zaWduYXR1cmUoZnVuYykKICAgIHBhcmFtX25hbWVzID0gbGlzdChzaWcucGFyYW1ldGVycy5rZXlzKCkpCgogICAgaWYgaXNpbnN0YW5jZShkYXRhLCBkaWN0KToKICAgICAgICBrd2FyZ3MgPSB7fQogICAgICAgIGZvciBuYW1lIGluIHBhcmFtX25hbWVzOgogICAgICAgICAgICBpZiBuYW1lIGluIGRhdGE6CiAgICAgICAgICAgICAgICBrd2FyZ3NbbmFtZV0gPSBjb252ZXJ0X3ZhbHVlKGRhdGFbbmFtZV0pCiAgICAgICAgcmVzdWx0ID0gZnVuYygqKmt3YXJncykKICAgIGVsaWYgaXNpbnN0YW5jZShkYXRhLCBsaXN0KToKICAgICAgICBhcmdzID0gW2NvbnZlcnRfdmFsdWUodikgZm9yIHYgaW4gZGF0YV0KICAgICAgICByZXN1bHQgPSBmdW5jKCphcmdzKQogICAgZWxzZToKICAgICAgICByZXN1bHQgPSBmdW5jKGNvbnZlcnRfdmFsdWUoZGF0YSkpCgogICAgcmVzdWx0ID0gbm9ybWFsaXplX291dHB1dChyZXN1bHQpCiAgICBwcmludChzdHIocmVzdWx0KSkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgbWFpbigpCg=="
+          }
+        ]
+      }
+    ],
+    "solutions": [
+      {
+        "order": 1,
+        "title": {
+          "content": "Code",
+          "content_type": "TEXT"
+        },
+        "description": {
+          "content": "",
+          "content_type": ""
+        },
+        "code_details": [
+          {
+            "code_content": "import numpy as np\n\ndef mse_output_gradient(y_true: list[float], y_pred: list[float]) -> list[float]:\n    y_true = np.array(y_true)\n    y_pred = np.array(y_pred)\n    grad = 2.0 * (y_pred - y_true)\n    return [round(float(g), 4) for g in grad]",
+            "language": "PYTHON38_DATASCIENCE",
+            "default_code": true,
+            "code_id": "68e651f3-b5e6-4122-b4a7-acb14877eab8"
+          }
+        ],
+        "complexity_analysis": {
+          "content": "",
+          "content_type": ""
+        }
+      }
+    ],
+    "hints": [],
+    "test_case_evaluation_metrics": [
+      {
+        "language": "PYTHON38_DATASCIENCE",
+        "time_limit_to_execute_in_seconds": 4.0
+      }
+    ]
+  }
+]
