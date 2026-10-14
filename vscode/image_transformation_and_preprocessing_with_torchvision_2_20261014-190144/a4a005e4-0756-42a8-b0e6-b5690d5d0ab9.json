@@ -1,0 +1,39 @@
+[
+  {
+    "question_id": "a4a005e4-0756-42a8-b0e6-b5690d5d0ab9",
+    "question_text": "## European Satellite Land-Use Patch Classification\n\nA **remote-sensing research team** needs to classify land-use patterns from satellite imagery captured over Europe. Each image is a 64x64 overhead patch belonging to one of ten land-use categories. The team wants a preprocessing pipeline that correctly handles the unique properties of satellite imagery before feeding patches into a neural network classifier.\n\n---\n\n### Dataset\n\nThe training images are stored in `images_CV3.zip`. The notebook's first cell extracts this archive into an `images/` folder organised in `torchvision.datasets.ImageFolder` layout, where each subfolder name is the class label.\n\n**Classes (10):**\n\n| Class Folder | Land-Use Type |\n|---|---|\n| `AnnualCrop` | Fields with seasonal crops |\n| `Forest` | Dense woodland areas |\n| `HerbaceousVegetation` | Low-lying grass and shrub land |\n| `Highway` | Major roads and motorways |\n| `Industrial` | Factories and industrial zones |\n| `Pasture` | Grazing land |\n| `PermanentCrop` | Vineyards, orchards, permanent plantations |\n| `Residential` | Urban housing areas |\n| `River` | River channels and waterways |\n| `SeaLake` | Open water bodies |\n\n**Image size:** 64 x 64 pixels, RGB\n\n---\n\n### Tasks\n\n1. Load the training images using `torchvision.datasets.ImageFolder` with a basic `ToTensor()` transform to confirm the dataset loads correctly and that raw tensor values fall in `[0.0, 1.0]`.\n\n2. Build a **training transform pipeline** (`train_transform`) as a `transforms.Compose` that includes, in a justified order: `Resize`, `RandomHorizontalFlip`, `RandomVerticalFlip`, `ColorJitter`, `ToTensor`, and `Normalize` using the EuroSAT RGB channel means `[0.3444, 0.3803, 0.4078]` and standard deviations `[0.2038, 0.1367, 0.1148]`. In a comment or markdown cell, explain why each transform is included and why random vertical flipping is appropriate for overhead satellite imagery but not for natural photos.\n\n3. Build a **deterministic evaluation transform pipeline** (`eval_transform`) as a `transforms.Compose` that includes only `Resize`, `ToTensor`, and `Normalize` (same statistics as above). Explain why stochastic augmentations must be excluded at evaluation time.\n\n4. Verify that applying `eval_transform` to any single training image produces a tensor with shape `(3, 64, 64)`, dtype `torch.float32`, and per-channel values in approximately `[-3.0, 3.0]`.\n\n5. Train a small CNN from scratch (stored in a variable named `model`) on the training images using your `train_transform`. The model should reach at least **65% accuracy** on the hidden test patches when evaluated with `eval_transform`.\n\n---\n\n### Expected Output\n\n| Variable | Type | Description |\n|---|---|---|\n| `train_transform` | `transforms.Compose` | Training pipeline with at least one stochastic augmentation |\n| `eval_transform` | `transforms.Compose` | Deterministic evaluation pipeline |\n| `model` | `torch.nn.Module` | Trained CNN classifier |\n\nThe `eval_transform` will be applied to hidden test images of the same ten classes. The test images are 64x64 RGB patches from the same EuroSAT distribution.\n\n---\n\n### Important Instructions\n\nThe data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\n\n- Keep your evaluation transform in a variable named `eval_transform` and your training transform in a variable named `train_transform`.\n\n- `ToTensor` must appear **before** `Normalize` inside every `Compose` pipeline. Reversing the order will produce incorrect tensor values and your normalization check will fail.\n\n- Do **not** apply stochastic transforms (such as `RandomHorizontalFlip`, `RandomVerticalFlip`, or `ColorJitter`) inside `eval_transform`. These transforms must appear only in `train_transform`.\n\n- Keep your trained network in a variable named `model`.",
+    "short_text": "Image Transformation and Preprocessing with Torchvision: EuroSAT Land-Use Classification",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_image_transformation_torchvision_eurosat",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "bee7bc5b-84df-4be1-b536-568e76e2f34f",
+    "test_cases": [
+      {
+        "test_case_enum": "PY1",
+        "display_text": "The solution should run without any errors.",
+        "weightage": 10
+      },
+      {
+        "test_case_enum": "PY2",
+        "display_text": "The eval_transform pipeline should be a transforms.Compose containing ToTensor followed by Normalize, with no random augmentations.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY3",
+        "display_text": "The train_transform pipeline should include RandomHorizontalFlip, RandomVerticalFlip, ColorJitter, ToTensor, and Normalize with the correct EuroSAT channel statistics.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY4",
+        "display_text": "The trained model should achieve at least 65% accuracy on the hidden EuroSAT test patches when evaluated with eval_transform.",
+        "weightage": 50
+      }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+  }
+]
