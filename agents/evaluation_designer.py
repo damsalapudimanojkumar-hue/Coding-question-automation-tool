@@ -30,13 +30,16 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude_with_tools
-from naming import filename_instructions, asset_relnames, make_code
+from naming import (filename_instructions, asset_relnames, images_zip_name, make_code,
+                    test_images_zip_relname)
+from tools.image_dataset import remove_extracted_images
 from ui.session import TerminalIO
 from tracing import observe
 from tools.local_tools import ALL_TOOLS, tool_executor
 from prompts.evaluation_prompt import (
     EVALUATION_PHASE1_PROMPT,
     EVALUATION_PHASE2_PROMPT,
+    IMAGE_DATA_NOTE,
     build_phase1_user_prompt,
     build_phase2_user_prompt,
 )
@@ -222,7 +225,10 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
     wiki_reference_formats = state.get("wiki_reference_formats", "")
     wiki_examples = state.get("wiki_examples", "")
     code = state.get("assignment_code") or make_code(topic)
-    filenames = filename_instructions(code)
+    image_data = state.get("assignment_type") == "cv"
+    filenames = filename_instructions(code, image_data=image_data)
+    if image_data:
+        filenames += "\n\n" + IMAGE_DATA_NOTE
     curriculum = state.get("wiki_curriculum", "")
     eval_styles = state.get("wiki_eval_styles", "")
 
@@ -330,11 +336,18 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
         os.path.join("tests", "__init__.py"),
         os.path.join("tests", "conftest.py"),
         os.path.join("tests", "test_solution.py"),
-        os.path.join("tests", gt_name),
         question_file or "question.json",
         "pytest.ini",
         "requirements.txt",
     ]
+    if image_data:
+        expected_files += [images_zip_name(code), os.path.join(*test_images_zip_relname(code).split("/"))]
+        removed = remove_extracted_images(workspace)
+        if removed:
+            io.emit("log", text="Removed unzipped image copies (the zips are the real copies): "
+                                + ", ".join(removed))
+    else:
+        expected_files.append(os.path.join("tests", gt_name))
 
     file_report = []
     for fname in expected_files:

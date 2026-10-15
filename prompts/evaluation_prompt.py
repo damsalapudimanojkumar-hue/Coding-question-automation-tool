@@ -292,6 +292,30 @@ each file was written by listing what was created.
 """
 
 
+IMAGE_DATA_NOTE = """THIS IS AN IMAGE ASSIGNMENT (real images in class folders). There are NO CSV files:
+never create, read, or mention dataset_train/dataset_test/ground_truth CSVs for this assignment.
+- Students get only the training archive. The first code cell of solution.ipynb (and of every solution
+  variant) extracts it relative to the pytest root:
+  zipfile.ZipFile("<training archive name>").extractall("images")
+  and loads it with torchvision.datasets.ImageFolder("images/train", transform=...).
+- Use torchvision.transforms and torch. Never download data and never generate random or synthetic images.
+- The reference solution trains a SMALL CNN from scratch on CPU (a few conv layers), seeded
+  (torch.manual_seed(42)), with total training time well under 60 seconds. No pretrained weights.
+- The notebook keeps its trained network in a variable named `model` (torch.nn.Module) and its
+  evaluation transform in `eval_transform`. It does not need to predict anything itself.
+- Grading uses the hidden test archive in tests/. conftest.py execs the notebook (as in the worked
+  examples), finds `model` and `eval_transform`, extracts the hidden archive into a temporary directory
+  (tempfile.mkdtemp, never inside the workspace), loads it with
+  ImageFolder(<tmp>/test, transform=eval_transform), runs model.eval() under torch.no_grad(), and
+  computes accuracy against the folder labels. ImageFolder sorts class names alphabetically, so the
+  student's class indices and the hidden set's indices match.
+- Tests: notebook runs; `model` is a trained torch.nn.Module; `eval_transform` exists (and any
+  structure the problem statement requires); accuracy on the hidden images meets a threshold
+  calibrated from the reference run. The lazy baseline (always the most common class) must FAIL it.
+- When you trial-run code yourself, extract archives into tempfile directories, never the workspace.
+- The platform session type is DSML_DL (torch and torchvision pre-installed); requirements.txt stays pytest only."""
+
+
 def build_phase1_user_prompt(
     topic: str,
     problem_statement: str,
@@ -319,7 +343,7 @@ def build_phase1_user_prompt(
         f"{curriculum_block}"
         f"{styles_block}"
         f"TOPIC: {topic}\n\n"
-        f"WORKSPACE (CSV files are here): {workspace}\n\n"
+        f"WORKSPACE (data files are here): {workspace}\n\n"
         f"{filenames}\n\n"
         f"PROBLEM STATEMENT:\n{problem_statement}\n\n"
         f"DATASET DETAILS:\n{dataset_plan}\n\n"

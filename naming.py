@@ -55,12 +55,34 @@ def asset_paths(workspace: str, code: str) -> dict:
     }
 
 
-def filename_instructions(code: str, workspace: str = None) -> str:
+def images_zip_name(code: str) -> str:
+    """Student-facing archive of TRAINING images in class folders. One file
+    instead of hundreds keeps GitHub saves and S3 uploads to a single request."""
+    return f"images_{code}.zip"
+
+
+def test_images_zip_relname(code: str) -> str:
+    """Hidden held-out images (also in class folders), shipped only inside tests/."""
+    return f"tests/test_images_{code}.zip"
+
+
+def filename_instructions(code: str, workspace: str = None, image_data: bool = False) -> str:
     """Explicit, unambiguous filename block injected into agent prompts so the
     model writes/reads the suffixed names instead of generic ones. When a
     workspace is given, ABSOLUTE paths are included so the model never depends
     on the current working directory (which is a temp scratch dir)."""
     names = asset_relnames(code)
+    if image_data:
+        root = f"{workspace}/" if workspace else ""
+        return (
+            "EXACT DATA FILES FOR THIS IMAGE DATASET (use these names precisely, never S3 URLs).\n"
+            "There are NO CSV files for image datasets; labels come from folder names.\n"
+            f"- training images (students get this) -> {root}{images_zip_name(code)}\n"
+            "    inside it: train/<class_name>/<file>.png\n"
+            f"- hidden test images (graders only)   -> {root}{test_images_zip_relname(code)}\n"
+            "    inside it: test/<class_name>/<file>.png\n"
+            "conftest.py, pytest.ini, requirements.txt keep their exact generic names."
+        )
     if workspace:
         paths = asset_paths(workspace, code)
         return (

@@ -15,3 +15,6 @@ nltk>=3.8
 # feasible; if the deploy still times out, remove these two lines (CV falls back to numpy).
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.0
+torchvision>=0.15
+# CV datasets from Kaggle (reads KAGGLE_API_TOKEN from env or Streamlit Secrets)
+kagglehub>=0.3

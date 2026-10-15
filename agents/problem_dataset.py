@@ -13,8 +13,11 @@ from naming import asset_paths, filename_instructions, make_code
 from dataset_ops import apply_edits, feature_columns
 from ui.session import TerminalIO
 from tracing import observe
+from tools.image_dataset import archive_paths, describe, validate_image_dataset
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
+    CV_DATASET_DRAFT_SYSTEM_PROMPT,
+    CV_OPTIONS_SYSTEM_PROMPT,
     DATASET_DRAFT_SYSTEM_PROMPT,
     DATASET_EDIT_SYSTEM_PROMPT,
     OPTIONS_SYSTEM_PROMPT,
@@ -78,8 +81,13 @@ def _saved_dataset_summary(workspace, code):
     return "\n".join(lines)
 
 
-def _dataset_snapshot(workspace, code):
-    paths = tuple(asset_paths(workspace, code).values())
+def _is_cv(state):
+    return state.get("assignment_type") == "cv"
+
+
+def _dataset_snapshot(workspace, code, cv=False):
+    paths = (archive_paths(workspace, code).values() if cv
+             else asset_paths(workspace, code).values())
     return {path: os.stat(path).st_mtime_ns if os.path.isfile(path) else None for path in paths}
 
 
@@ -91,8 +99,8 @@ def _dataset_was_refreshed(before):
     )
 
 
-def _recover_design(state, selected, workspace, code):
-    summary = _saved_dataset_summary(workspace, code)
+def _recover_design(state, selected, workspace, code, summary=None, system=DATASET_DRAFT_SYSTEM_PROMPT):
+    summary = summary or _saved_dataset_summary(workspace, code)
     if not summary:
         return "", ""
     print("Dataset files were saved; recovering the missing final draft without rerunning downloads...")
@@ -108,13 +116,13 @@ REFERENCE FORMATS:
 
 Return only ---DATASET_PLAN--- and ---PROBLEM_STATEMENT--- blocks in the required format.
 The problem statement must end with Important Instructions and contain no em dashes."""
-    response = call_claude(system=DATASET_DRAFT_SYSTEM_PROMPT, user=prompt, max_tokens=5000)
+    response = call_claude(system=system, user=prompt, max_tokens=5000)
     return _parse_design(response)
 
 
 def _generate_options(state, existing):
     response = call_claude(
-        system=OPTIONS_SYSTEM_PROMPT,
+        system=CV_OPTIONS_SYSTEM_PROMPT if _is_cv(state) else OPTIONS_SYSTEM_PROMPT,
         user=build_options_user_prompt(
             state["topic"], state.get("learning_objective", ""),
             state.get("research_output", ""), state.get("wiki_dataset_context", ""),
@@ -148,7 +156,9 @@ def _select_option(state, options, io):
             io.emit("notice", text="Choose an option number, M, or Q.")
 
 
-def _generate_design(state, selected, workspace, code):
+def _generate_design(state, selected, workspace, code, io):
+    if _is_cv(state):
+        return _generate_image_design(state, selected, workspace, code, io)
     before = _dataset_snapshot(workspace, code)
     response = call_claude_with_tools(
         system=DATASET_DRAFT_SYSTEM_PROMPT,
@@ -165,6 +175,39 @@ def _generate_design(state, selected, workspace, code):
             return _recover_design(state, selected, workspace, code)
         return "", ""
     return plan, statement
+
+
+def _generate_image_design(state, selected, workspace, code, io):
+    """Fetch a real image dataset, then verify it in code before trusting the model's report."""
+    before = _dataset_snapshot(workspace, code, cv=True)
+    response = call_claude_with_tools(
+        system=CV_DATASET_DRAFT_SYSTEM_PROMPT,
+        user=build_dataset_draft_user_prompt(
+            state["topic"], state.get("learning_objective", ""), selected,
+            state.get("research_output", ""), state.get("wiki_instructions_context", ""),
+            _question_reference_formats(), workspace,
+            filename_instructions(code, workspace, image_data=True),
+        ),
+        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=24,
+    )
+    if not _dataset_was_refreshed(before):
+        io.emit("notice", text="The training and hidden test image archives were not both written "
+                               "for this option.")
+        return "", ""
+
+    summary, problems, warnings = validate_image_dataset(workspace, code)
+    if problems:
+        io.emit("notice", text="[!] The image dataset failed verification:\n- " + "\n- ".join(problems))
+        return "", ""
+    for warning in warnings:
+        io.emit("notice", text=warning)
+
+    verified = describe(summary)
+    plan, statement = _parse_design(response)
+    if not plan or not statement:
+        return _recover_design(state, selected, workspace, code, summary=verified,
+                               system=CV_DATASET_DRAFT_SYSTEM_PROMPT)
+    return f"{plan}\n\nVerified by the pipeline:\n{verified}", statement
 
 
 def _revise_statement(state, statement, io):
@@ -299,14 +342,18 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
             }
 
         io.emit("log", text="Phase 2: obtaining and inspecting the selected dataset...")
-        plan, statement = _generate_design(state, selected, workspace, code)
+        cv = _is_cv(state)
+        plan, statement = _generate_design(state, selected, workspace, code, io)
         if not plan or not statement:
             io.emit("notice", text="[!] Dataset preparation did not complete for this option "
                                    "(source unreachable, or the model ran out of tool turns "
-                                   "before saving the CSVs and returning the draft).")
-            recovery = io.ask({"kind": "recovery"})
+                                   "before saving the data files and returning the draft).")
+            recovery = io.ask({"kind": "recovery", "assignment_type": state.get("assignment_type")})
             if recovery == "R":
-                plan, statement = _generate_design(state, selected, workspace, code)
+                plan, statement = _generate_design(state, selected, workspace, code, io)
+            elif recovery == "S" and cv:
+                io.emit("notice", text="Synthetic data is not used for image datasets. "
+                                       "Pick another option instead.")
             elif recovery == "S":
                 plan, statement, _ = _change_dataset(
                     state, selected, "", "", workspace, code, io, synthetic=True
@@ -318,7 +365,11 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
         modification_notes = None
         while True:
             io.emit("draft", plan=plan, statement=statement)
-            action = io.ask({"kind": "draft_action"})
+            action = io.ask({"kind": "draft_action", "assignment_type": state.get("assignment_type")})
+            if cv and action in ("SD", "ED"):
+                io.emit("notice", text="Synthetic replacement and preset edits only work on "
+                                       "tabular data. Use Edit problem or Back to options.")
+                continue
             if action == "A":
                 return {
                     "options_table": options,

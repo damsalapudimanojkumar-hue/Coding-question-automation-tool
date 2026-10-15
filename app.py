@@ -101,7 +101,8 @@ def _gather_library_files(out_dir, only=None):
     """Collect {relative_path: bytes} from a run's output folder, ready to push to GitHub.
     - code-editor: pass only={the 2 deliverable JSONs} so the portal zip stays clean.
     - vscode: pass only=None to walk the whole workspace (notebook, tests/, data, ...).
-    Zips and cache folders are always skipped."""
+    Generated deliverable zips and cache folders are skipped; CV image archives
+    (images_<CODE>.zip, tests/test_images_<CODE>.zip) are data, so they are kept."""
     files = {}
     if only:
         for name in only:
@@ -113,7 +114,7 @@ def _gather_library_files(out_dir, only=None):
     for root, dirs, names in os.walk(out_dir):
         dirs[:] = [d for d in dirs if d not in ("__pycache__", ".pytest_cache", ".sessions")]
         for name in names:
-            if name.endswith(".zip"):
+            if name.endswith(".zip") and "images_" not in name:
                 continue
             full = os.path.join(root, name)
             rel = os.path.relpath(full, out_dir).replace("\\", "/")
@@ -712,10 +713,20 @@ if kind == "select_option":
     options = opts_ev["options"] if opts_ev else []
     for i, o in enumerate(options, 1):
         with st.container(border=True):
-            st.markdown(
-                f"**{i}. {o.get('title')}**  \n"
-                f"Dataset: {o.get('dataset')}  ·  Rows: {o.get('rows')}  ·  Balance: {o.get('balance')}"
-            )
+            if o.get("task_type") == "image_classification":
+                classes = o.get("classes") or []
+                st.markdown(
+                    f"**{i}. {o.get('title')}**  \n"
+                    f"Dataset: {o.get('dataset')}  ·  Source: {o.get('source')} "
+                    f"(`{o.get('source_id')}`)  ·  Images: {o.get('rows')}  ·  "
+                    f"Size: {o.get('image_size')}px  \n"
+                    f"Classes: {', '.join(map(str, classes))}"
+                )
+            else:
+                st.markdown(
+                    f"**{i}. {o.get('title')}**  \n"
+                    f"Dataset: {o.get('dataset')}  ·  Rows: {o.get('rows')}  ·  Balance: {o.get('balance')}"
+                )
             st.caption(o.get("learning_objective", ""))
             if st.button(f"Select #{i}", key=f"sel_{i}_{len(options)}"):
                 ws.answer(str(i))
@@ -730,11 +741,12 @@ if kind == "select_option":
 
 elif kind == "recovery":
     st.warning("Dataset preparation did not complete for this option.")
+    is_cv = pending.get("assignment_type") == "cv"
     c1, c2, c3 = st.columns(3)
     if c1.button("Retry same option", key="rec_r"):
         ws.answer("R")
         st.rerun()
-    if c2.button("Synthetic dataset", key="rec_s"):
+    if not is_cv and c2.button("Synthetic dataset", key="rec_s"):
         ws.answer("S")
         st.rerun()
     if c3.button("Back to options", key="rec_b"):
@@ -751,6 +763,7 @@ elif kind == "draft_action":
         st.subheader("Problem statement (preview)")
         st.markdown(draft.get("statement", "") or "[no statement]")
     st.divider()
+    tabular_tools = pending.get("assignment_type") != "cv"
     c = st.columns(5)
     if c[0].button("Approve", key="d_a", type="primary"):
         ws.answer("A")
@@ -758,10 +771,10 @@ elif kind == "draft_action":
     if c[1].button("Edit problem", key="d_ep"):
         ws.answer("EP")
         st.rerun()
-    if c[2].button("Edit dataset", key="d_ed"):
+    if tabular_tools and c[2].button("Edit dataset", key="d_ed"):
         ws.answer("ED")
         st.rerun()
-    if c[3].button("Synthetic", key="d_sd"):
+    if tabular_tools and c[3].button("Synthetic", key="d_sd"):
         ws.answer("SD")
         st.rerun()
     if c[4].button("Back to options", key="d_b"):
