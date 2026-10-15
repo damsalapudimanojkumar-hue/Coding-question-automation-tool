@@ -1,0 +1,39 @@
+[
+  {
+    "question_id": "c83afe63-3023-474e-8c7b-69e43ab946e7",
+    "question_text": "## Chest X-Ray Pneumonia Detection\n\nA **hospital radiology department** wants to automate the initial screening of chest X-ray images to flag potential pneumonia cases before physician review. By training a convolutional neural network on labeled scans, the department aims to reduce manual review time and catch pneumonia-positive cases earlier.\n\nYour task is to build and train a CNN classifier that distinguishes normal chest X-rays from pneumonia-positive ones.\n\n---\n\n### Dataset\n\nThe training archive `images_CV5.zip` is extracted by the notebook's first cell. Images are organized for use with `torchvision.datasets.ImageFolder` under the `train/` directory, with one subdirectory per class.\n\n| Property | Detail |\n|----------|--------|\n| Classes | `NORMAL`, `PNEUMONIA` |\n| Image sizes | Vary across the dataset |\n| Format | JPEG |\n\nBecause image sizes vary across the dataset, your transforms must resize every image to one fixed spatial size before passing it to the network.\n\nThe trained model will be evaluated on hidden test images drawn from the same two classes.\n\n---\n\n### Tasks\n\n1. Define a preprocessing pipeline using `torchvision.transforms` that resizes every image to a single fixed size, converts it to a grayscale tensor using `transforms.Grayscale`, and normalizes pixel values. Store this pipeline in a variable named `eval_transform` and apply it consistently during both training and evaluation.\n\n2. Load the training data from the extracted `train/` directory using `torchvision.datasets.ImageFolder` and wrap it in a `DataLoader` suitable for mini-batch training.\n\n3. Build a CNN classifier as a `torch.nn.Module` subclass. The architecture must include at least two blocks of `Conv2d`, `ReLU`, and `MaxPool2d` layers, followed by `Flatten` and one or more `Linear` layers that produce logits over the two classes. Store the network in a variable named `model`.\n\n4. Train the model using a standard PyTorch training loop: call `optimizer.zero_grad()`, compute the loss, call `loss.backward()`, and then `optimizer.step()` on each mini-batch. Train for enough epochs that the training loss decreases noticeably.\n\n5. Run inference on the hidden test images using your trained `model` and `eval_transform`. Store the predicted class indices (one integer per image, either `0` or `1`) as a Python list or 1-D NumPy array in a variable named `test_predictions`.\n\n6. Achieve at least **75%** accuracy on the hidden test images.\n\n---\n\n### Expected Output\n\n| Variable | Type | Description |\n|----------|------|-------------|\n| `model` | `torch.nn.Module` | Trained CNN with `Conv2d`, `MaxPool2d`, and `Flatten` layers |\n| `eval_transform` | `torchvision.transforms.Compose` | Preprocessing pipeline applied to every image at evaluation time |\n| `test_predictions` | `list` or 1-D `np.ndarray` | Predicted class index (`0` = NORMAL, `1` = PNEUMONIA) for each hidden test image |\n\n---\n\n### Important Instructions\n\nThe data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\n\n- `model` must be an instance of `torch.nn.Module` and must contain at least two `Conv2d` layers, at least one `MaxPool2d` layer, and at least one `Flatten` layer.\n\n- `eval_transform` must resize all images to the same fixed spatial dimensions your network expects. Include `transforms.Grayscale` so each image is single-channel, matching the input channels of your first `Conv2d` layer.\n\n- Set your model to evaluation mode (`model.eval()`) and wrap inference in `torch.no_grad()` when generating `test_predictions`.\n\n- `test_predictions` must contain exactly one integer per test image (`0` or `1`). Do not store raw logits or probabilities in this variable.",
+    "short_text": "CNN-Based Chest X-Ray Pneumonia Detection",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_cnn_chest_xray_pneumonia_detection",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "8cba85ef-11e1-4fdb-9b0c-d66f4276cc5a",
+    "test_cases": [
+      {
+        "test_case_enum": "PY1",
+        "display_text": "The solution should run without any errors.",
+        "weightage": 10
+      },
+      {
+        "test_case_enum": "PY2",
+        "display_text": "A trained CNN model (torch.nn.Module) with at least two Conv2d layers, one MaxPool2d, and one Flatten layer should be present in the solution.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY3",
+        "display_text": "The eval_transform pipeline should be a transforms.Compose containing both transforms.Grayscale and transforms.Resize.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY4",
+        "display_text": "The trained model should achieve at least 75% accuracy on the hidden chest X-ray test images.",
+        "weightage": 50
+      }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+  }
+]
