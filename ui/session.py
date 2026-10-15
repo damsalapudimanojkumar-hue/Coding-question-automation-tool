@@ -19,6 +19,8 @@ Ask `spec` is a dict with a "kind" plus optional fields. Answer conventions
     recovery      -> "R" | "S" | "B"
     draft_action  -> "A" | "EP" | "ED" | "SD" | "B"
     eval_action   -> "A" | "D" | "R"
+    image_sample  -> {classes, images_per_class, use_all, test_fraction} | {"back": True}
+                     (CLI answers anything else, which means "use the defaults")
     text          -> free text (spec["prompt"])
     discuss       -> free text incl. "accept" / "back"
 """
@@ -26,6 +28,7 @@ Ask `spec` is a dict with a "kind" plus optional fields. Answer conventions
 import queue
 import threading
 import textwrap
+import time
 
 
 # ── terminal rendering helpers (moved here from problem_dataset) ───────────
@@ -208,6 +211,7 @@ class WebSession:
         self.error = None
         self.run_id = None        # set by the UI; enables autosave when present
         self.meta = None          # small dict (topic, config_type) for the recovery panel
+        self.resumed_at = 0.0     # when the worker last started or got an answer
         self._answer = queue.Queue(maxsize=1)
         self._lock = threading.RLock()
         self._thread = None
@@ -236,7 +240,7 @@ class WebSession:
     # -- called by the pipeline (worker thread) --
     def emit(self, kind, **payload):
         with self._lock:
-            self.events.append({"kind": kind, **payload})
+            self.events.append({"kind": kind, "at": time.time(), **payload})
 
     def ask(self, spec):
         with self._lock:
@@ -247,10 +251,17 @@ class WebSession:
         with self._lock:
             self.pending = None
             self.status = "running"
+            self.resumed_at = time.time()   # work restarts now, not at the last log line
         return value
 
     # -- called by the UI (main thread) --
     def answer(self, value):
+        # Streamlit can leave the previous screen's buttons visible while the
+        # pipeline runs. A click on one of those must not be queued, or it would
+        # silently answer the NEXT question the pipeline asks.
+        with self._lock:
+            if self.pending is None:
+                return
         # Non-blocking: if an answer is already queued (e.g. a double-click),
         # drop the extra rather than blocking the UI thread.
         try:
@@ -260,9 +271,11 @@ class WebSession:
 
     def start(self, target):
         """target: callable(io) -> result. Runs it in a daemon worker thread."""
+        with self._lock:
+            self.status = "running"
+            self.resumed_at = time.time()
+        self._persist()                     # recoverable even before its first question
         def _run():
-            with self._lock:
-                self.status = "running"
             try:
                 self.result = target(self)
                 with self._lock:
@@ -284,6 +297,7 @@ class WebSession:
                 "status": self.status,
                 "result": self.result,
                 "error": repr(self.error) if self.error else None,
+                "resumed_at": self.resumed_at,
             }
 
     def is_awaiting(self):

@@ -20,9 +20,10 @@ How LangGraph runs this
 
 Human-in-the-loop note
 -----------------------
-We keep the existing `io.ask` bridge INSIDE the nodes (Level 1 adoption). We are NOT
-using LangGraph's native `interrupt()`/checkpoint resume yet — that is the deferred
-Phase 4. So this graph is compiled WITHOUT a checkpointer and needs no thread_id.
+We keep the existing `io.ask` bridge INSIDE the nodes (Level 1 adoption), not
+LangGraph's native `interrupt()`. The web app passes a checkpointer (ui/checkpoints.py),
+so the state is saved after every completed node and a run can resume after an app
+restart from the first unfinished node. Callers without a checkpointer behave as before.
 
 The node wrappers below only add the same `io.emit(...)` log lines the old app.py
 emitted, so the breadcrumb, research brief, and status text render identically.
@@ -39,7 +40,7 @@ from agents.codeeditor_design import codeeditor_design_agent
 from agents.codeeditor_generate import codeeditor_generate_agent
 
 
-def build_pipeline_graph(io):
+def build_pipeline_graph(io, checkpointer=None):
     """Build and compile the pipeline graph. `io` is the run's WebSession/Terminal IO;
     the node functions close over it so they can emit logs and ask HITL questions.
     A fresh graph is built per run so each run's nodes talk to that run's `io`."""
@@ -133,4 +134,4 @@ def build_pipeline_graph(io):
                             {"vs_eval": "vs_eval", END: END})
     g.add_edge("vs_eval", END)
 
-    return g.compile()
+    return g.compile(checkpointer=checkpointer)

@@ -1,8 +1,9 @@
 """Deterministic checks for a CV assignment's image dataset.
 
-Layout (labels come from folder names, so there are no CSV files):
-    images_<CODE>.zip              train/<class>/*.png   (students get this)
-    tests/test_images_<CODE>.zip   test/<class>/*.png    (hidden, graders only)
+Layout (labels come from folder names, so there are no CSV files; images keep their
+original format and size):
+    images_<CODE>.zip              train/<class>/<image>   (students get this)
+    tests/test_images_<CODE>.zip   test/<class>/<image>    (hidden, graders only)
 
 The dataset agent is an LLM, so "it says it saved real images" is not proof.
 This module opens both archives itself and reports what is really there.
@@ -22,7 +23,7 @@ from PIL import Image
 from naming import images_zip_name, test_images_zip_relname
 
 SIZE_WARNING_MB = 10
-IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp")
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp", ".ppm", ".pgm")
 
 
 def archive_paths(workspace: str, code: str) -> dict:
@@ -93,18 +94,26 @@ def validate_image_dataset(workspace: str, code: str) -> tuple[dict, list[str], 
     if total_mb > SIZE_WARNING_MB:
         warnings.append(f"Image archives total {total_mb:.1f} MB (platform guideline is under "
                         f"{SIZE_WARNING_MB} MB).")
-    if len(sizes) > 1:
-        warnings.append(f"Images have mixed sizes: {dict(sizes.most_common(3))}")
 
     summary = {
         "classes": sorted(train),
         "train_per_class": dict(sorted(train.items())),
         "test_per_class": dict(sorted(test.items())),
-        "image_sizes": [f"{w}x{h}" for (w, h) in sizes],
+        "size_range": _size_range(sizes),
         "train_mb": round(archive_mb["train"], 2),
         "test_mb": round(archive_mb["test"], 2),
     }
     return summary, problems, warnings
+
+
+def _size_range(sizes: Counter) -> str:
+    if not sizes:
+        return "unknown"
+    smallest = min(sizes, key=lambda s: s[0] * s[1])
+    largest = max(sizes, key=lambda s: s[0] * s[1])
+    if smallest == largest:
+        return f"{smallest[0]}x{smallest[1]} (all images)"
+    return f"{smallest[0]}x{smallest[1]} to {largest[0]}x{largest[1]} (original sizes, not resized)"
 
 
 def describe(summary: dict) -> str:
@@ -115,7 +124,7 @@ def describe(summary: dict) -> str:
         f"Classes ({len(summary['classes'])}): {', '.join(summary['classes'])}\n"
         f"Train images per class: {summary['train_per_class']}\n"
         f"Hidden test images per class: {summary['test_per_class']}\n"
-        f"Image size: {', '.join(summary['image_sizes'])}\n"
+        f"Image sizes: {summary['size_range']}\n"
         f"Archives: training {summary['train_mb']} MB, hidden test {summary['test_mb']} MB"
     )
 

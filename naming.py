@@ -78,9 +78,11 @@ def filename_instructions(code: str, workspace: str = None, image_data: bool = F
             "EXACT DATA FILES FOR THIS IMAGE DATASET (use these names precisely, never S3 URLs).\n"
             "There are NO CSV files for image datasets; labels come from folder names.\n"
             f"- training images (students get this) -> {root}{images_zip_name(code)}\n"
-            "    inside it: train/<class_name>/<file>.png\n"
+            "    inside it: train/<class_name>/<image file>\n"
             f"- hidden test images (graders only)   -> {root}{test_images_zip_relname(code)}\n"
-            "    inside it: test/<class_name>/<file>.png\n"
+            "    inside it: test/<class_name>/<image file>\n"
+            "Image files keep their ORIGINAL format (.jpg, .jpeg, .png, .ppm, .bmp, .tif, .webp) and size.\n"
+            "Load them with torchvision.datasets.ImageFolder; never glob a single file extension.\n"
             "conftest.py, pytest.ini, requirements.txt keep their exact generic names."
         )
     if workspace:

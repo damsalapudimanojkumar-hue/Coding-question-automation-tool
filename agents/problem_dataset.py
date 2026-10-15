@@ -9,15 +9,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude, call_claude_with_tools
-from naming import asset_paths, filename_instructions, make_code
+from naming import asset_paths, filename_instructions, images_zip_name, make_code, test_images_zip_relname
 from dataset_ops import apply_edits, feature_columns
 from ui.session import TerminalIO
 from tracing import observe
-from tools.image_dataset import archive_paths, describe, validate_image_dataset
+from tools.image_dataset import describe, validate_image_dataset
+from tools.image_sources import build_archives, default_choice, inspect_dataset
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
-    CV_DATASET_DRAFT_SYSTEM_PROMPT,
     CV_OPTIONS_SYSTEM_PROMPT,
+    CV_PROBLEM_STATEMENT_PROMPT,
     DATASET_DRAFT_SYSTEM_PROMPT,
     DATASET_EDIT_SYSTEM_PROMPT,
     OPTIONS_SYSTEM_PROMPT,
@@ -25,6 +26,7 @@ from prompts.problem_dataset_prompt import (
     SYNTHETIC_SYSTEM_PROMPT,
     build_dataset_change_user_prompt,
     build_dataset_draft_user_prompt,
+    build_image_statement_user_prompt,
     build_options_user_prompt,
     build_revision_user_prompt,
 )
@@ -85,9 +87,8 @@ def _is_cv(state):
     return state.get("assignment_type") == "cv"
 
 
-def _dataset_snapshot(workspace, code, cv=False):
-    paths = (archive_paths(workspace, code).values() if cv
-             else asset_paths(workspace, code).values())
+def _dataset_snapshot(workspace, code):
+    paths = tuple(asset_paths(workspace, code).values())
     return {path: os.stat(path).st_mtime_ns if os.path.isfile(path) else None for path in paths}
 
 
@@ -99,8 +100,8 @@ def _dataset_was_refreshed(before):
     )
 
 
-def _recover_design(state, selected, workspace, code, summary=None, system=DATASET_DRAFT_SYSTEM_PROMPT):
-    summary = summary or _saved_dataset_summary(workspace, code)
+def _recover_design(state, selected, workspace, code):
+    summary = _saved_dataset_summary(workspace, code)
     if not summary:
         return "", ""
     print("Dataset files were saved; recovering the missing final draft without rerunning downloads...")
@@ -116,7 +117,7 @@ REFERENCE FORMATS:
 
 Return only ---DATASET_PLAN--- and ---PROBLEM_STATEMENT--- blocks in the required format.
 The problem statement must end with Important Instructions and contain no em dashes."""
-    response = call_claude(system=system, user=prompt, max_tokens=5000)
+    response = call_claude(system=DATASET_DRAFT_SYSTEM_PROMPT, user=prompt, max_tokens=5000)
     return _parse_design(response)
 
 
@@ -178,23 +179,31 @@ def _generate_design(state, selected, workspace, code, io):
 
 
 def _generate_image_design(state, selected, workspace, code, io):
-    """Fetch a real image dataset, then verify it in code before trusting the model's report."""
-    before = _dataset_snapshot(workspace, code, cv=True)
-    response = call_claude_with_tools(
-        system=CV_DATASET_DRAFT_SYSTEM_PROMPT,
-        user=build_dataset_draft_user_prompt(
-            state["topic"], state.get("learning_objective", ""), selected,
-            state.get("research_output", ""), state.get("wiki_instructions_context", ""),
-            _question_reference_formats(), workspace,
-            filename_instructions(code, workspace, image_data=True),
-        ),
-        tools=[RUN_PYTHON_TOOL], tool_executor=tool_executor, max_turns=24,
-    )
-    if not _dataset_was_refreshed(before):
-        io.emit("notice", text="The training and hidden test image archives were not both written "
-                               "for this option.")
+    """CV datasets: download and inspect the real dataset, let the human choose how much of it
+    to use, build the two image archives with fixed code, verify them, then draft the problem.
+    Returns None when the human goes back to the options."""
+    source, source_id = selected.get("source"), selected.get("source_id")
+    io.emit("log", text=f"Downloading and inspecting {selected.get('dataset') or source_id} "
+                        f"({source}). The first download of a dataset can take a few minutes...")
+    try:
+        info = inspect_dataset(source, source_id)
+    except Exception as exc:  # noqa: BLE001 - network/source failures are reported, not fatal
+        io.emit("notice", text=f"[!] Could not use this dataset: {exc}")
         return "", ""
 
+    defaults = default_choice(info, selected.get("classes"))
+    choice = io.ask({"kind": "image_sample", "info": info, "defaults": defaults})
+    if isinstance(choice, dict) and choice.get("back"):
+        return None
+    if not isinstance(choice, dict) or len(choice.get("classes") or []) < 2:
+        choice = defaults
+
+    io.emit("log", text="Copying the chosen images into the student and hidden test archives...")
+    try:
+        split_info = build_archives(source, source_id, choice, workspace, code)
+    except Exception as exc:  # noqa: BLE001 - e.g. too few readable images in a class
+        io.emit("notice", text=f"[!] Could not build the image archives: {exc}")
+        return "", ""
     summary, problems, warnings = validate_image_dataset(workspace, code)
     if problems:
         io.emit("notice", text="[!] The image dataset failed verification:\n- " + "\n- ".join(problems))
@@ -202,12 +211,40 @@ def _generate_image_design(state, selected, workspace, code, io):
     for warning in warnings:
         io.emit("notice", text=warning)
 
-    verified = describe(summary)
-    plan, statement = _parse_design(response)
-    if not plan or not statement:
-        return _recover_design(state, selected, workspace, code, summary=verified,
-                               system=CV_DATASET_DRAFT_SYSTEM_PROMPT)
-    return f"{plan}\n\nVerified by the pipeline:\n{verified}", statement
+    plan = _image_plan(info, choice, summary, code, split_info)
+    io.emit("log", text="Writing the problem statement from the verified dataset...")
+    response = call_claude(
+        system=CV_PROBLEM_STATEMENT_PROMPT,
+        user=build_image_statement_user_prompt(
+            state["topic"], state.get("learning_objective", ""), selected,
+            state.get("research_output", ""), plan, _question_reference_formats(),
+            state.get("wiki_curriculum", ""),
+        ),
+        max_tokens=5000,
+    )
+    statement = _between(response, "---PROBLEM_STATEMENT---", "---END_PROBLEM_STATEMENT---")
+    return plan, statement
+
+
+def _image_plan(info, choice, summary, code, split_info):
+    """Dataset plan built from verified facts only (no model involved)."""
+    amount = ("every image of each class" if choice.get("use_all")
+              else f"{choice['images_per_class']} images per class")
+    verified = "\n".join(f"- {line}" for line in describe(summary).splitlines())
+    hidden = ("hidden images come from the dataset's own official test split" if split_info.get("official_split")
+              else f"{round(choice['test_fraction'] * 100)}% of each class held back at random for grading")
+    variant = (f"\n\n**Variant used:** `{info['variant_used']}` (the download also has "
+               f"{', '.join(v for v in info['variants'] if v != info['variant_used'])})"
+               if info.get("variants") else "")
+    return (
+        f"**Source:** {info['source']} · `{info['source_id']}` ({info['name']})\n\n"
+        f"**Full dataset:** {len(info['classes'])} classes, {info['total']:,} images{variant}\n\n"
+        f"**Chosen:** {len(choice['classes'])} classes, {amount}; {hidden}; "
+        f"duplicate and unreadable images skipped; images keep their original size and format\n\n"
+        f"**Files:** `{images_zip_name(code)}` (students get this), "
+        f"`{test_images_zip_relname(code)}` (hidden, grading only)\n\n"
+        f"**Verified by the pipeline:**\n\n{verified}"
+    )
 
 
 def _revise_statement(state, statement, io):
@@ -343,14 +380,19 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
 
         io.emit("log", text="Phase 2: obtaining and inspecting the selected dataset...")
         cv = _is_cv(state)
-        plan, statement = _generate_design(state, selected, workspace, code, io)
+        design = _generate_design(state, selected, workspace, code, io)
+        if design is None:                      # Back to options from the image panel
+            continue
+        plan, statement = design
         if not plan or not statement:
             io.emit("notice", text="[!] Dataset preparation did not complete for this option "
-                                   "(source unreachable, or the model ran out of tool turns "
-                                   "before saving the data files and returning the draft).")
+                                   "(see the message above).")
             recovery = io.ask({"kind": "recovery", "assignment_type": state.get("assignment_type")})
             if recovery == "R":
-                plan, statement = _generate_design(state, selected, workspace, code, io)
+                design = _generate_design(state, selected, workspace, code, io)
+                if design is None:
+                    continue
+                plan, statement = design
             elif recovery == "S" and cv:
                 io.emit("notice", text="Synthetic data is not used for image datasets. "
                                        "Pick another option instead.")

@@ -30,7 +30,7 @@ except Exception:
 import streamlit as st
 
 from ui.session import WebSession
-from ui import persistence
+from ui import checkpoints, persistence
 from tracing import observe, flush as trace_flush
 from claude_client import reset_cost, cost_summary
 from graph import build_pipeline_graph   # the pipeline is now a LangGraph StateGraph
@@ -39,6 +39,8 @@ from tools.question_library import (
     records_from_folder, build_question_set_bundle,
     vscode_record_from_folder, build_vscode_bundle,
 )
+from tools.image_sources import estimate as estimate_image_sample
+from prompts.problem_dataset_prompt import ACCURACY_PLACEHOLDER
 
 st.set_page_config(page_title="DSML Assignment Pipeline", layout="wide")
 
@@ -65,23 +67,30 @@ def _build_version():
 BUILD_VERSION = _build_version()
 
 
-def build_pipeline(cfg):
+def build_pipeline(cfg, run_id, resume=False):
     """Return a callable(io) that runs the pipeline for cfg's config_type.
 
-    The pipeline is now a LangGraph StateGraph (see graph.py). We build it per run so
-    its nodes bind to this run's `io`, then invoke it with the start config as the
-    initial state. graph.invoke runs synchronously in the worker thread; the HITL nodes
-    pause by blocking on io.ask, exactly as the hand-written chain did. The final state
-    it returns becomes ws.result, which the screens below read with res.get(...)."""
+    The pipeline is a LangGraph StateGraph (see graph.py), built per run so its nodes
+    bind to this run's `io`. It is checkpointed under run_id after every completed
+    step, so resume=True continues a run that an app restart cut off (cfg unused then).
+    graph.invoke runs synchronously in the worker thread; the HITL nodes pause by
+    blocking on io.ask. The final state becomes ws.result."""
     @observe(name="assignment_pipeline", as_type="chain")
     def pipeline(io):
         try:
             reset_cost()   # start this run's cost tally from zero
-            graph = build_pipeline_graph(io)
-            return graph.invoke(dict(cfg))
+            graph = build_pipeline_graph(io, checkpoints.open_saver())
+            return graph.invoke(None if resume else dict(cfg), checkpoints.run_config(run_id))
         finally:
             trace_flush()   # push any buffered Langfuse traces before the worker ends
     return pipeline
+
+
+@st.cache_resource
+def _live_runs():
+    """Runs alive in this server process, by run_id. A browser refresh loses the tab's
+    session_state but not the worker thread, so the start screen can reattach to it."""
+    return {}
 
 
 def zip_workspace(workspace):
@@ -150,7 +159,8 @@ def render_save_to_library(kind, res):
             st.warning("No deliverable files found to save.")
             return
         try:
-            path = github_store.push_question(kind, res.get("topic", "") or "question", files)
+            with st.spinner("Saving to the GitHub library (large datasets take a minute to upload)..."):
+                path = github_store.push_question(kind, res.get("topic", "") or "question", files)
             st.session_state[saved_key] = path
             _load_library_records.clear()
             _load_vscode_records.clear()
@@ -173,13 +183,16 @@ def _active_stage(is_codeeditor, status, pending, events):
     kinds = [e.get("kind") for e in events]
     if status == "done":
         return "Deliverable"
+    stage = latest_event(events, "stage") or {}
+    if stage.get("name") == "evaluation":
+        return "Tests" if is_codeeditor else "Evaluation"
     if pending:
         k, ph = pending.get("kind"), pending.get("phase")
         if ph == "tests" or k == "eval_action":
             return "Tests" if is_codeeditor else "Evaluation"
         if k == "codeeditor_pick" or ph == "problem":
             return "Problem"
-        if k in ("select_option", "recovery", "draft_action", "edit_dataset", "text"):
+        if k in ("select_option", "recovery", "draft_action", "edit_dataset", "image_sample", "text"):
             return "Problem & Data"
     if "codeeditor_outputs" in kinds:
         return "Deliverable"
@@ -229,6 +242,7 @@ def render_sidebar_nav():
                     if current_ws and current_ws.snapshot().get("status") in ("done", "error"):
                         st.session_state.ws = None
                         st.session_state.pop("is_codeeditor", None)
+                        st.query_params.pop("run", None)
                 st.session_state.page = key
                 st.rerun()
 
@@ -371,11 +385,25 @@ def render_vscode_library(records, errors):
         c1.markdown(f"**{record['title']}**")
         c2.caption(record["difficulty"])
         c3.caption(_library_date(record["folder_path"]))
-        c4.download_button(
-            "Download ZIP", build_vscode_bundle(record["files"]),
-            file_name=f"{_safe_set_filename(record['title'])}.zip",
-            mime="application/zip", key=f"vscode_dl_{record['key']}",
-        )
+        files, bundle_key = record["files"], f"vscode_bundle_{record['key']}"
+        if github_store.has_assets(files) and bundle_key not in st.session_state:
+            # Large files (image datasets) live in release assets: fetch them only on request.
+            if c4.button("Prepare download", key=f"vscode_prep_{record['key']}",
+                         help="Fetches this question's large dataset files from GitHub first."):
+                with st.spinner("Fetching the dataset files from GitHub..."):
+                    try:
+                        st.session_state[bundle_key] = build_vscode_bundle(
+                            github_store.resolve_assets(files))
+                    except Exception as exc:  # noqa: BLE001 - shown to the user
+                        st.error(f"Download failed: {exc}")
+                    else:
+                        st.rerun()
+        else:
+            c4.download_button(
+                "Download ZIP", st.session_state.get(bundle_key) or build_vscode_bundle(files),
+                file_name=f"{_safe_set_filename(record['title'])}.zip",
+                mime="application/zip", key=f"vscode_dl_{record['key']}",
+            )
         if c5.button("Delete", key=f"vscode_delete_{record['key']}"):
             _request_library_delete("vscode", record)
 
@@ -487,33 +515,101 @@ if st.session_state.page == "library":
 
 st.title("DSML Assignment Pipeline")
 
-def render_recovery_panel():
-    """On the start screen, surface an interrupted run (from autosave) and let the
-    user download the design it had already produced, so a crash doesn't waste it."""
-    interrupted = [r for r in persistence.list_runs()
-                   if r.get("status") in ("awaiting", "running", "error")]
-    if not interrupted:
-        return
-    r = interrupted[0]
-    meta = r.get("meta", {})
-    with st.container(border=True):
-        st.warning(f"⏳ Unfinished run found: **{meta.get('topic', '(unknown)')}**  "
-                   f"· status `{r.get('status')}`")
-        previews = [e for e in r.get("events", []) if e.get("kind") == "codeeditor_preview"]
-        c1, c2 = st.columns([3, 1])
-        if previews:
-            import json as _json
-            c1.download_button(
-                "⬇ Recover the design it produced (.json)",
-                data=_json.dumps(previews[-1].get("config", {}), indent=2),
-                file_name=f"recovered_{meta.get('topic', 'design')}.json",
-                mime="application/json", key="recover_dl",
-            )
+def _attach(run_ws, run_id, meta):
+    """Show this run in the current tab, and put its id in the address bar so a refresh
+    of this tab (and only this tab) comes back to it."""
+    st.session_state.ws = run_ws
+    st.session_state.is_codeeditor = bool(meta.get("is_codeeditor"))
+    st.query_params["run"] = run_id
+    st.rerun()
+
+
+def _unfinished_runs():
+    """Runs the start screen can offer: every run still registered in this server (alive,
+    finished but never opened, or failed) plus autosaved runs an app restart cut off."""
+    runs = {}
+    for r in persistence.list_runs():
+        if r.get("status") in ("awaiting", "running", "error"):
+            runs[r["run_id"]] = dict(r, live=None)
+    for run_id, live in _live_runs().items():
+        entry = runs.get(run_id) or {"run_id": run_id, "meta": live.meta or {}, "events": [], "ts": 0}
+        entry["live"] = live
+        runs[run_id] = entry
+    return sorted(runs.values(), key=lambda r: r.get("ts", 0), reverse=True)
+
+
+def _recovery_controls(r, key):
+    run_id, meta, live = r["run_id"], r.get("meta", {}), r.get("live")
+    status = live.status if live else r.get("status")
+    alive = live is not None and status in ("idle", "running", "awaiting")
+    c1, c2 = st.columns([3, 1])
+    if alive:
+        c1.caption("This run is still active. Reconnect to continue exactly where it was.")
+        if c1.button("Reconnect", type="primary", key=f"reconnect_{key}"):
+            _attach(live, run_id, meta)
+    elif live is not None and status == "done":
+        c1.caption("This run finished while no tab was showing it.")
+        if c1.button("Open result", type="primary", key=f"open_{key}"):
+            _attach(live, run_id, meta)
+    else:
+        steps = checkpoints.next_steps(build_pipeline_graph(None, checkpoints.open_saver()), run_id)
+        if steps:
+            label = checkpoints.STEP_LABELS.get(steps[0], steps[0])
+            reason = "stopped with an error" if status == "error" else "was cut off by an app restart"
+            c1.caption(f"This run {reason}. Finished steps are saved; "
+                       f"the {label} step will start again from its beginning.")
+            if c1.button(f"Resume from {label}", type="primary", key=f"resume_{key}"):
+                resumed = WebSession()
+                resumed.run_id, resumed.meta = run_id, meta
+                resumed.events = list(r.get("events", [])) + [
+                    {"kind": "notice", "at": time.time(),
+                     "text": f"Resumed. Continuing from {label}."}]
+                resumed.start(build_pipeline(None, run_id, resume=True))
+                _live_runs()[run_id] = resumed
+                _attach(resumed, run_id, meta)
         else:
-            c1.caption("No design was captured before it stopped.")
-        if c2.button("Discard", key="recover_discard"):
-            persistence.delete_run(r["run_id"])
-            st.rerun()
+            c1.caption("Nothing was saved that this run can continue from.")
+    previews = [e for e in r.get("events", []) if e.get("kind") == "codeeditor_preview"]
+    if previews:
+        import json as _json
+        c1.download_button(
+            "⬇ Recover the design it produced (.json)",
+            data=_json.dumps(previews[-1].get("config", {}), indent=2),
+            file_name=f"recovered_{meta.get('topic', 'design')}.json",
+            mime="application/json", key=f"recover_dl_{key}",
+        )
+    if not alive and c2.button("Discard", key=f"discard_{key}"):   # never discard a live run
+        persistence.delete_run(run_id)
+        checkpoints.delete(run_id)
+        _live_runs().pop(run_id, None)
+        if st.query_params.get("run") == run_id:
+            del st.query_params["run"]
+        st.rerun()
+
+
+def render_recovery_panel():
+    """On the start screen, offer to continue unfinished runs. The run named in this tab's
+    address bar (?run=...) is offered directly; runs from other tabs or other people are
+    listed separately, collapsed, so nobody answers someone else's run by accident."""
+    runs = _unfinished_runs()
+    if not runs:
+        return
+    mine = next((r for r in runs if r["run_id"] == st.query_params.get("run")), None)
+    others = [r for r in runs if r is not mine]
+    if mine:
+        status = mine["live"].status if mine.get("live") else mine.get("status")
+        with st.container(border=True):
+            st.warning(f"⏳ Your unfinished run: **{mine.get('meta', {}).get('topic', '(unknown)')}**  "
+                       f"· status `{status}`")
+            _recovery_controls(mine, "mine")
+    if others:
+        with st.expander(f"Other unfinished runs on this app ({len(others)})"):
+            st.caption("Started in another tab, or by someone else using this app. "
+                       "Only continue runs that are yours.")
+            for i, r in enumerate(others):
+                status = r["live"].status if r.get("live") else r.get("status")
+                st.markdown(f"**{r.get('meta', {}).get('topic', '(unknown)')}**  · status `{status}`")
+                _recovery_controls(r, f"other_{i}")
 
 
 # ── START FORM ───────────────────────────────────────────────────────────
@@ -580,8 +676,10 @@ if ws is None:
         new_ws.run_id = f"{slug}_{int(time.time())}"
         new_ws.meta = {"topic": topic, "config_type": cfg["config_type"],
                        "is_codeeditor": is_codeeditor}
-        new_ws.start(build_pipeline(cfg))
+        new_ws.start(build_pipeline(cfg, new_ws.run_id))
+        _live_runs()[new_ws.run_id] = new_ws
         st.session_state.ws = new_ws
+        st.query_params["run"] = new_ws.run_id   # a refresh of this tab comes back to this run
         st.rerun()
     st.stop()
 
@@ -596,6 +694,7 @@ with st.sidebar:
     if st.button("Reset / New run"):
         st.session_state.ws = None
         st.session_state.pop("is_codeeditor", None)
+        st.query_params.pop("run", None)        # a still-running run stays listed on the start screen
         st.rerun()
 
 # stage breadcrumb ("you are here") — reads the emitted events, changes no agent
@@ -620,8 +719,16 @@ if status == "error":
     st.stop()
 
 if status in ("idle", "running"):
-    st.spinner_text = "Working (research / dataset prep can take a minute)..."
-    st.info("⏳ Working — research / dataset preparation can take a minute...")
+    step = latest_event(events, "log") or {}
+    resumed = snap.get("resumed_at") or 0
+    if step.get("at", 0) >= resumed:
+        current = (step.get("text") or "Starting...").strip().splitlines()[-1]
+        since = step.get("at") or resumed
+    else:                                   # an answer started new work with no log line yet
+        current, since = "Working on your choice...", resumed
+    minutes = int((time.time() - since) // 60) if since else 0
+    running_for = f"  ·  running for {minutes} min" if minutes else ""
+    st.info(f"⏳ Working: {current}{running_for}")
     time.sleep(0.6)
     st.rerun()
 
@@ -629,6 +736,9 @@ if status == "done":
     res = ws.result or {}
     # run finished — its deliverable is in outputs/, so drop the autosave snapshot
     persistence.delete_run(getattr(ws, "run_id", None))
+    if getattr(ws, "run_id", None):
+        checkpoints.delete(ws.run_id)
+        _live_runs().pop(ws.run_id, None)
 
     # ── code-editor result view ────────────────────────────────────────────
     if res.get("config_type") == "code_editor_type":
@@ -718,9 +828,9 @@ if kind == "select_option":
                 st.markdown(
                     f"**{i}. {o.get('title')}**  \n"
                     f"Dataset: {o.get('dataset')}  ·  Source: {o.get('source')} "
-                    f"(`{o.get('source_id')}`)  ·  Images: {o.get('rows')}  ·  "
-                    f"Size: {o.get('image_size')}px  \n"
-                    f"Classes: {', '.join(map(str, classes))}"
+                    f"(`{o.get('source_id')}`)  ·  Full dataset: {o.get('rows')}  \n"
+                    f"Suggested classes: {', '.join(map(str, classes))}  \n"
+                    f"After you select it, the full dataset is downloaded and you choose how much to use."
                 )
             else:
                 st.markdown(
@@ -762,6 +872,9 @@ elif kind == "draft_action":
     with right:
         st.subheader("Problem statement (preview)")
         st.markdown(draft.get("statement", "") or "[no statement]")
+        if ACCURACY_PLACEHOLDER in (draft.get("statement") or ""):
+            st.caption(f"`{ACCURACY_PLACEHOLDER}` is filled in later with the accuracy measured "
+                       f"by training the reference solution in the Evaluation step.")
     st.divider()
     tabular_tools = pending.get("assignment_type") != "cv"
     c = st.columns(5)
@@ -779,6 +892,69 @@ elif kind == "draft_action":
         st.rerun()
     if c[4].button("Back to options", key="d_b"):
         ws.answer("B")
+        st.rerun()
+
+elif kind == "image_sample":
+    info = pending.get("info") or {}
+    defaults = pending.get("defaults") or {}
+    counts = {c["name"]: c["count"] for c in info.get("classes", [])}
+    sid = info.get("source_id", "")
+    st.subheader(f"Choose how much of {info.get('name', sid)} to use")
+    st.caption(f"{info.get('source')} · `{sid}` · {info.get('download')} · {len(counts)} classes · "
+               f"{info.get('total', 0):,} images · image sizes {info.get('size_range')} · "
+               f"about {info.get('avg_kb', 0)} KB per image. Images keep their original size and format.")
+    if info.get("official_test_split"):
+        st.caption("This dataset has its own official test split, so hidden grading images are taken "
+                   "from it (when every chosen class has enough), never mixed with training images.")
+    if info.get("variants"):
+        st.caption(f"The download holds several versions of the same images "
+                   f"({', '.join(info['variants'])}); only `{info.get('variant_used')}` is used, "
+                   f"so one photo can never end up in both sets.")
+    if info.get("label_files"):
+        st.warning(f"This download also contains label files ({', '.join(info['label_files'])}). "
+                   f"The classes below come from folder names; if this dataset's real labels live in "
+                   f"those files instead, go back and pick another option.")
+    with st.expander(f"All {len(counts)} classes and how many images each has",
+                     expanded=len(counts) <= 15):
+        st.dataframe([{"class": name, "images": n} for name, n in counts.items()],
+                     hide_index=True, use_container_width=True)
+    chosen = st.multiselect("Classes to use", list(counts), key=f"cv_classes_{sid}",
+                            default=[c for c in defaults.get("classes", []) if c in counts])
+    too_small = [c for c in chosen if counts[c] < 2]
+    if len(chosen) < 2:
+        st.warning("Pick at least two classes.")
+    elif too_small:
+        st.warning(f"These classes have fewer than 2 images, so they cannot be split into "
+                   f"training and hidden test images: {', '.join(too_small)}")
+    else:
+        smallest = min(counts[c] for c in chosen)
+        use_all = st.checkbox("Use every image (each class keeps its full natural count)",
+                              value=bool(defaults.get("use_all")), key=f"cv_all_{sid}")
+        c1, c2 = st.columns(2)
+        per_class = None
+        if not use_all and smallest == 2:
+            per_class = 2
+        elif not use_all:
+            per_class = c1.slider(
+                "Images per class", 2, smallest,
+                max(2, min(defaults.get("images_per_class", 150), smallest)),
+                key=f"cv_per_{sid}_{smallest}",
+                help=f"Up to {smallest:,}, the size of the smallest chosen class.")
+        held_back = c2.slider("Held back for grading (% of each class)", 10, 40,
+                              int(round(defaults.get("test_fraction", 0.2) * 100)), step=5,
+                              key=f"cv_test_{sid}")
+        est = estimate_image_sample([counts[c] for c in chosen], per_class, held_back / 100,
+                                    info.get("avg_kb", 0))
+        st.info(f"{len(chosen)} classes · {est['total']:,} images ({est['train']:,} for students to "
+                f"train on, {est['test']:,} hidden for grading) · about {est['zip_mb']:.1f} MB in total")
+        if est["zip_mb"] > 10:
+            st.caption("That is above the platform's usual 10 MB dataset guideline.")
+        if st.button("Build dataset", type="primary", key="cv_build"):
+            ws.answer({"classes": sorted(chosen), "images_per_class": per_class or smallest,
+                       "use_all": use_all, "test_fraction": held_back / 100})
+            st.rerun()
+    if st.button("Back to options", key="cv_back"):
+        ws.answer({"back": True})
         st.rerun()
 
 elif kind == "edit_dataset":

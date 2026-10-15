@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from claude_client import call_claude_with_tools
 from naming import (filename_instructions, asset_relnames, images_zip_name, make_code,
                     test_images_zip_relname)
+from prompts.problem_dataset_prompt import ACCURACY_PLACEHOLDER
 from tools.image_dataset import remove_extracted_images
 from ui.session import TerminalIO
 from tracing import observe
@@ -171,6 +172,18 @@ INSTRUCTIONS:
     except Exception as e:
         print(f"[Revision call failed: {e}]")
         return ""
+
+
+def _files_containing(workspace: str, relpaths: list, text: str) -> list:
+    """Which of these workspace files still contain `text` (missing files are skipped)."""
+    found = []
+    for rel in relpaths:
+        path = os.path.join(workspace, rel)
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+                if text in fh.read():
+                    found.append(rel)
+    return found
 
 
 def _finalize_question_json(workspace: str) -> str:
@@ -346,6 +359,12 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
         if removed:
             io.emit("log", text="Removed unzipped image copies (the zips are the real copies): "
                                 + ", ".join(removed))
+        unfilled = _files_containing(workspace, [question_file or "question.json", "solution.ipynb",
+                                                 os.path.join("tests", "test_solution.py")],
+                                     ACCURACY_PLACEHOLDER)
+        if unfilled:
+            io.emit("notice", text=f"[!] The accuracy target was not filled in ({ACCURACY_PLACEHOLDER} "
+                                   f"is still in {', '.join(unfilled)}). Replace it before shipping.")
     else:
         expected_files.append(os.path.join("tests", gt_name))
 
@@ -359,10 +378,26 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
 
     io.emit("files", files=file_report, workspace=workspace, question_file=question_file)
 
-    return {
+    result = {
         "approved_test_cases": approved_test_cases,
         "generated_files_path": workspace,
         "question_file": question_file,
         "generated_files": file_report,
         "evaluation_complete": True,
     }
+    shipped = _shipped_question_text(workspace, question_file)
+    if shipped:   # what students will read, e.g. with the measured accuracy filled in
+        result["problem_statement"] = shipped
+    return result
+
+
+def _shipped_question_text(workspace: str, question_file: str) -> str:
+    """question_text from the finalized question file, or "" if it cannot be read."""
+    path = os.path.join(workspace, question_file or "question.json")
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return ""
+    record = data[0] if isinstance(data, list) and data else data
+    return record.get("question_text", "") if isinstance(record, dict) else ""

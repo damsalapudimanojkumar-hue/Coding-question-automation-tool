@@ -299,15 +299,25 @@ never create, read, or mention dataset_train/dataset_test/ground_truth CSVs for 
   zipfile.ZipFile("<training archive name>").extractall("images")
   and loads it with torchvision.datasets.ImageFolder("images/train", transform=...).
 - Use torchvision.transforms and torch. Never download data and never generate random or synthetic images.
+- Images keep their ORIGINAL sizes and formats, which may differ between images, so every transform
+  (training and eval_transform) must resize to one fixed size before ToTensor.
 - The reference solution trains a SMALL CNN from scratch on CPU (a few conv layers), seeded
-  (torch.manual_seed(42)), with total training time well under 60 seconds. No pretrained weights.
+  (torch.manual_seed(42)), with total training time well under 60 seconds (e.g. resize to 64x64 and
+  decode each image once, caching the tensors, instead of re-decoding large images every epoch).
+  No pretrained weights.
+- ACCURACY TARGET: the problem statement says {{ACCURACY_THRESHOLD}} instead of a number. In Phase 1,
+  propose the threshold from the reference run (clearly above the lazy baseline, with headroom below
+  the reference accuracy). In Phase 2, replace EVERY {{ACCURACY_THRESHOLD}} in question.json and in
+  solution.ipynb with the approved threshold written as a percentage (e.g. 55%), and use the same
+  value in test_solution.py. No {{ACCURACY_THRESHOLD}} may remain in any generated file.
 - The notebook keeps its trained network in a variable named `model` (torch.nn.Module) and its
   evaluation transform in `eval_transform`. It does not need to predict anything itself.
 - Grading uses the hidden test archive in tests/. conftest.py execs the notebook (as in the worked
   examples), finds `model` and `eval_transform`, extracts the hidden archive into a temporary directory
   (tempfile.mkdtemp, never inside the workspace), loads it with
-  ImageFolder(<tmp>/test, transform=eval_transform), runs model.eval() under torch.no_grad(), and
-  computes accuracy against the folder labels. ImageFolder sorts class names alphabetically, so the
+  ImageFolder(<tmp>/test, transform=eval_transform), runs model.eval() under torch.no_grad() one image
+  at a time (so a student transform that forgets to resize fails the accuracy test with a clear
+  message instead of crashing batch collation), and computes accuracy against the folder labels. ImageFolder sorts class names alphabetically, so the
   student's class indices and the hidden set's indices match.
 - Tests: notebook runs; `model` is a trained torch.nn.Module; `eval_transform` exists (and any
   structure the problem statement requires); accuracy on the hidden images meets a threshold
