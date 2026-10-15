@@ -223,6 +223,11 @@ def render_sidebar_nav():
             active = st.session_state.page == key
             if st.button(label, use_container_width=True, key=f"nav_{key}",
                          type="primary" if active else "secondary"):
+                if key == "generate":
+                    current_ws = st.session_state.get("ws")
+                    if current_ws and current_ws.snapshot().get("status") in ("done", "error"):
+                        st.session_state.ws = None
+                        st.session_state.pop("is_codeeditor", None)
                 st.session_state.page = key
                 st.rerun()
 
@@ -233,6 +238,8 @@ def render_research_body(ev):
     sites = ev.get("sites") or []
     if sites:
         st.caption("🔎 Sources explored: " + ", ".join(sites))
+    elif ev.get("source_note"):
+        st.caption("🔎 " + ev["source_note"])
 
 
 def render_cost():

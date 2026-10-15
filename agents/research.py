@@ -62,6 +62,7 @@ def research_agent(state: dict) -> dict:
     print(f"Researching: {topic}")
 
     sites_explored = []
+    source_note = "Web search was unavailable for this run."
     if tavily_available():
         # Way 1: model-driven, domain-scoped Tavily search (capped at 6 turns).
         # The domain list + tool description follow the assignment format so a
@@ -70,14 +71,21 @@ def research_agent(state: dict) -> dict:
         print(f"Searching via Tavily (scoped to {', '.join(sites_for(config_type))}) "
               f"+ internal wiki...\n")
         executor = make_tavily_executor(config_type)
+        # Always make one focused search. Previously sources were empty whenever
+        # the model chose not to call its optional Tavily tool.
+        seed_query = " ".join(part for part in (topic, learning_objective, "assignment") if part)
+        seed_results = executor("tavily_search", {"query": seed_query, "max_results": 5})
         response_text = call_claude_with_tools(
             system=RESEARCH_SYSTEM_PROMPT,
-            user=user_prompt,
+            user=(user_prompt + "\n\nINITIAL TAVILY RESULTS (inspiration only; never copy):\n"
+                  + seed_results),
             tools=[build_search_tool(config_type)],
             tool_executor=executor,
             max_turns=6,
         )
         sites_explored = domains_from_urls(getattr(executor, "seen", []))
+        source_note = ("Tavily returned no source URLs from the allowed sites for this topic."
+                       if not sites_explored else "Sources returned by Tavily for this research run.")
     else:
         # Fallback: OpenRouter's built-in web search (no Tavily key set).
         print("Searching the web (OpenRouter) + internal wiki [set TAVILY_API_KEY for scoped search]...\n")
@@ -91,4 +99,5 @@ def research_agent(state: dict) -> dict:
         print("\nSites explored: " + ", ".join(sites_explored))
     print(f"\n{'='*60}\n")
 
-    return {"research_output": response_text, "research_sites": sites_explored}
+    return {"research_output": response_text, "research_sites": sites_explored,
+            "research_source_note": source_note}

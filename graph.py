@@ -73,7 +73,8 @@ def build_pipeline_graph(io):
             io.emit("log", text="Researching code-editor sites for inspiration...")
         upd = research_agent(state)
         io.emit("research", text=upd.get("research_output", ""),
-                sites=upd.get("research_sites", []))
+                sites=upd.get("research_sites", []),
+                source_note=upd.get("research_source_note", ""))
         if not _is_ce(state):
             io.emit("log", text="Research complete. Generating options...")
         return upd
