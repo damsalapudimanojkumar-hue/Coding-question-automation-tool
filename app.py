@@ -39,6 +39,7 @@ from tools.question_library import (
     records_from_folder, build_question_set_bundle,
     vscode_record_from_folder, build_vscode_bundle,
 )
+from tools.image_sources import UNLABELLED as UNLABELLED_IMAGES
 from tools.image_sources import estimate as estimate_image_sample
 from prompts.problem_dataset_prompt import ACCURACY_PLACEHOLDER
 
@@ -821,17 +822,43 @@ if kind == "select_option":
     st.subheader("Choose a problem / dataset option")
     opts_ev = latest_event(events, "options")
     options = opts_ev["options"] if opts_ev else []
+    requirement = (opts_ev or {}).get("requirement")
+    if requirement:
+        st.info(f"**What this learning objective needs from a dataset:** labels {requirement.get('labels')}, "
+                f"graded by {requirement.get('grading')}. {requirement.get('needs', '')}  \n"
+                f"{requirement.get('why', '')}")
+        with st.expander("Change the data requirement"):
+            st.caption("Options are checked again against the new requirement; those that no longer "
+                       "fit are dropped. Grading by accuracy always needs labels.")
+            levels, gradings = ["required", "optional", "none"], ["accuracy", "structural"]
+            c1, c2 = st.columns(2)
+            new_labels = c1.radio("Labels", levels, horizontal=True, key="req_labels",
+                                  index=levels.index(requirement.get("labels", "required")))
+            new_grading = c2.radio("Graded by", gradings, horizontal=True, key="req_grading",
+                                   index=gradings.index(requirement.get("grading", "accuracy")))
+            if st.button("Apply requirement", key="req_apply"):
+                ws.answer({"requirement": {"labels": new_labels, "grading": new_grading}})
+                st.rerun()
+    if not options:
+        st.warning("No usable options yet. Ask for more options or change the topic.")
     for i, o in enumerate(options, 1):
         with st.container(border=True):
-            if o.get("task_type") == "image_classification":
+            if o.get("source_id"):
                 classes = o.get("classes") or []
+                check = o.get("verified") or {}
                 st.markdown(
                     f"**{i}. {o.get('title')}**  \n"
                     f"Dataset: {o.get('dataset')}  ·  Source: {o.get('source')} "
-                    f"(`{o.get('source_id')}`)  ·  Full dataset: {o.get('rows')}  \n"
-                    f"Suggested classes: {', '.join(map(str, classes))}  \n"
-                    f"After you select it, the full dataset is downloaded and you choose how much to use."
+                    f"(`{o.get('source_id')}`)  \n"
+                    + (f"Suggested classes: {', '.join(map(str, classes))}  \n" if classes else "")
+                    + "After you select it, the full dataset is downloaded and you choose how much to use."
                 )
+                if check.get("facts"):
+                    st.caption("Checked on the real dataset: " + " · ".join(check["facts"]))
+                if check.get("status") == "warn":
+                    st.warning(" · ".join(check.get("reasons", [])))
+                elif check.get("status") == "unverified":
+                    st.caption("Not checked: " + " · ".join(check.get("reasons", [])))
             else:
                 st.markdown(
                     f"**{i}. {o.get('title')}**  \n"
@@ -897,61 +924,98 @@ elif kind == "draft_action":
 elif kind == "image_sample":
     info = pending.get("info") or {}
     defaults = pending.get("defaults") or {}
-    counts = {c["name"]: c["count"] for c in info.get("classes", [])}
+    requirement = pending.get("requirement") or {}
     sid = info.get("source_id", "")
     st.subheader(f"Choose how much of {info.get('name', sid)} to use")
-    st.caption(f"{info.get('source')} · `{sid}` · {info.get('download')} · {len(counts)} classes · "
-               f"{info.get('total', 0):,} images · image sizes {info.get('size_range')} · "
-               f"about {info.get('avg_kb', 0)} KB per image. Images keep their original size and format.")
-    if info.get("official_test_split"):
+    st.caption(f"{info.get('source')} · `{sid}` · {info.get('download')} · {info.get('images', 0):,} images · "
+               f"image sizes {info.get('size_range')} · about {info.get('avg_kb', 0)} KB per image. Images keep "
+               f"their original names, folders, size and format.")
+    needs_labels = requirement.get("labels") == "required"
+    by_key = {s["key"]: s for s in info.get("label_sources", [])}
+    keys = [k for k, s in by_key.items() if s["labelled"] or not needs_labels]
+
+    def _source_label(k):
+        s = by_key[k]
+        extra = f" · {len(s['classes'])} classes" if s["labelled"] else ""
+        return f"{s['title']} · {s['total']:,} images{extra}"
+
+    start_key = defaults.get("label_source") if defaults.get("label_source") in keys else keys[0]
+    if len(keys) > 1:
+        key = st.radio("Where the labels come from", keys, index=keys.index(start_key),
+                       format_func=_source_label, key=f"cv_src_{sid}")
+    else:
+        key = keys[0]
+        st.caption(f"Labels: {_source_label(key)}")
+    if needs_labels and len(keys) < len(by_key):
+        st.caption("Using the images without labels is not offered: this learning objective needs labels.")
+    for unused in info.get("unused_tables", []):
+        st.caption(f"Not used as labels: `{unused['path']}` ({unused['reason']})")
+    src = by_key[key]
+    if src["official_test_split"]:
         st.caption("This dataset has its own official test split, so hidden grading images are taken "
                    "from it (when every chosen class has enough), never mixed with training images.")
-    if info.get("variants"):
+    if src["kind"] == "folders" and info.get("variants"):
         st.caption(f"The download holds several versions of the same images "
                    f"({', '.join(info['variants'])}); only `{info.get('variant_used')}` is used, "
                    f"so one photo can never end up in both sets.")
-    if info.get("label_files"):
-        st.warning(f"This download also contains label files ({', '.join(info['label_files'])}). "
-                   f"The classes below come from folder names; if this dataset's real labels live in "
-                   f"those files instead, go back and pick another option.")
-    with st.expander(f"All {len(counts)} classes and how many images each has",
-                     expanded=len(counts) <= 15):
-        st.dataframe([{"class": name, "images": n} for name, n in counts.items()],
-                     hide_index=True, use_container_width=True)
-    chosen = st.multiselect("Classes to use", list(counts), key=f"cv_classes_{sid}",
-                            default=[c for c in defaults.get("classes", []) if c in counts])
-    too_small = [c for c in chosen if counts[c] < 2]
-    if len(chosen) < 2:
-        st.warning("Pick at least two classes.")
-    elif too_small:
-        st.warning(f"These classes have fewer than 2 images, so they cannot be split into "
-                   f"training and hidden test images: {', '.join(too_small)}")
+    counts = {c["name"]: c["count"] for c in src["classes"]}
+    held_default = int(round(defaults.get("test_fraction", 0.2) * 100))
+    answer = None
+    if src["labelled"]:
+        with st.expander(f"All {len(counts)} classes and how many images each has",
+                         expanded=len(counts) <= 15):
+            st.dataframe([{"class": name, "images": n} for name, n in counts.items()],
+                         hide_index=True, use_container_width=True)
+        if key == defaults.get("label_source"):
+            preset = [c for c in defaults.get("classes", []) if c in counts]
+        else:
+            preset = sorted(sorted(counts, key=counts.get, reverse=True)[:10])
+        chosen = st.multiselect("Classes to use", list(counts), default=preset, key=f"cv_classes_{sid}_{key}")
+        if len(chosen) < 2:
+            st.warning("Pick at least two classes.")
+        else:
+            smallest = min(counts[c] for c in chosen)
+            use_all = st.checkbox("Use every image (each class keeps its full natural count)",
+                                  value=bool(defaults.get("use_all")), key=f"cv_all_{sid}_{key}")
+            c1, c2 = st.columns(2)
+            per_class = None
+            if not use_all and smallest == 2:
+                per_class = 2
+            elif not use_all:
+                per_class = c1.slider(
+                    "Images per class", 2, smallest,
+                    max(2, min(defaults.get("images_per_class", 150) if key == defaults.get("label_source")
+                               else 150, smallest)),
+                    key=f"cv_per_{sid}_{key}_{smallest}",
+                    help=f"Up to {smallest:,}, the size of the smallest chosen class.")
+            held_back = c2.slider("Held back for grading (% of each class)", 10, 40, held_default, step=5,
+                                  key=f"cv_test_{sid}_{key}")
+            est = estimate_image_sample([counts[c] for c in chosen], per_class, held_back / 100,
+                                        info.get("avg_kb", 0))
+            st.info(f"{len(chosen)} classes · {est['total']:,} images ({est['train']:,} for students to "
+                    f"train on, {est['test']:,} hidden for grading) · about {est['zip_mb']:.1f} MB in total")
+            answer = {"label_source": key, "classes": sorted(chosen), "images_per_class": per_class or smallest,
+                      "use_all": use_all, "test_fraction": held_back / 100}
     else:
-        smallest = min(counts[c] for c in chosen)
-        use_all = st.checkbox("Use every image (each class keeps its full natural count)",
-                              value=bool(defaults.get("use_all")), key=f"cv_all_{sid}")
+        total = counts.get(UNLABELLED_IMAGES, 0)
+        use_all = st.checkbox("Use every image", value=False, key=f"cv_all_{sid}_{key}")
         c1, c2 = st.columns(2)
-        per_class = None
-        if not use_all and smallest == 2:
-            per_class = 2
-        elif not use_all:
-            per_class = c1.slider(
-                "Images per class", 2, smallest,
-                max(2, min(defaults.get("images_per_class", 150), smallest)),
-                key=f"cv_per_{sid}_{smallest}",
-                help=f"Up to {smallest:,}, the size of the smallest chosen class.")
-        held_back = c2.slider("Held back for grading (% of each class)", 10, 40,
-                              int(round(defaults.get("test_fraction", 0.2) * 100)), step=5,
-                              key=f"cv_test_{sid}")
-        est = estimate_image_sample([counts[c] for c in chosen], per_class, held_back / 100,
-                                    info.get("avg_kb", 0))
-        st.info(f"{len(chosen)} classes · {est['total']:,} images ({est['train']:,} for students to "
-                f"train on, {est['test']:,} hidden for grading) · about {est['zip_mb']:.1f} MB in total")
+        count = None
+        if not use_all:
+            count = c1.slider("Number of images", 2, total, max(2, min(1000, total)),
+                              key=f"cv_n_{sid}_{key}_{total}")
+        held_back = c2.slider("Held back for grading (%)", 10, 40, held_default, step=5,
+                              key=f"cv_test_{sid}_{key}")
+        est = estimate_image_sample([total], count, held_back / 100, info.get("avg_kb", 0))
+        st.info(f"{est['total']:,} images without labels ({est['train']:,} for students, {est['test']:,} "
+                f"hidden for grading) · about {est['zip_mb']:.1f} MB in total")
+        answer = {"label_source": key, "classes": [UNLABELLED_IMAGES], "images_per_class": count or total,
+                  "use_all": use_all, "test_fraction": held_back / 100}
+    if answer:
         if est["zip_mb"] > 10:
             st.caption("That is above the platform's usual 10 MB dataset guideline.")
         if st.button("Build dataset", type="primary", key="cv_build"):
-            ws.answer({"classes": sorted(chosen), "images_per_class": per_class or smallest,
-                       "use_all": use_all, "test_fraction": held_back / 100})
+            ws.answer(answer)
             st.rerun()
     if st.button("Back to options", key="cv_back"):
         ws.answer({"back": True})

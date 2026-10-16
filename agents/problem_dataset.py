@@ -9,16 +9,19 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from claude_client import call_claude, call_claude_with_tools
-from naming import asset_paths, filename_instructions, images_zip_name, make_code, test_images_zip_relname
+from naming import asset_paths, filename_instructions, make_code
 from dataset_ops import apply_edits, feature_columns
 from ui.session import TerminalIO
 from tracing import observe
+from tools.dataset_verify import verify_options
 from tools.image_dataset import describe, validate_image_dataset
-from tools.image_sources import build_archives, default_choice, inspect_dataset
+from tools.image_layout import describe_layout
+from tools.image_sources import build_archives, default_choice, inspect_dataset, source_by_key
 from tools.local_tools import RUN_PYTHON_TOOL, tool_executor
 from prompts.problem_dataset_prompt import (
     CV_OPTIONS_SYSTEM_PROMPT,
     CV_PROBLEM_STATEMENT_PROMPT,
+    DATA_REQUIREMENT_PROMPT,
     DATASET_DRAFT_SYSTEM_PROMPT,
     DATASET_EDIT_SYSTEM_PROMPT,
     OPTIONS_SYSTEM_PROMPT,
@@ -28,8 +31,16 @@ from prompts.problem_dataset_prompt import (
     build_dataset_draft_user_prompt,
     build_image_statement_user_prompt,
     build_options_user_prompt,
+    build_requirement_user_prompt,
     build_revision_user_prompt,
 )
+
+# Used only when the objective could not be analysed: the safest assumption for a CV assignment.
+DEFAULT_REQUIREMENT = {"labels": "required", "grading": "accuracy", "task": "image classification",
+                       "needs": "labelled images in a few visually distinct classes",
+                       "why": "default, because the learning objective could not be analysed"}
+MIN_VERIFIED_OPTIONS = 3
+OPTION_ROUNDS = 3
 
 def _between(text, start, end):
     match = re.search(re.escape(start) + r"(.*?)" + re.escape(end), text, re.DOTALL)
@@ -121,30 +132,144 @@ The problem statement must end with Important Instructions and contain no em das
     return _parse_design(response)
 
 
-def _generate_options(state, existing):
+def _parse_requirement(text):
+    payload = _between(text, "---REQUIREMENT_JSON---", "---END_REQUIREMENT_JSON---")
+    if not payload:
+        match = re.search(r"\{.*\}", text or "", re.DOTALL)
+        payload = match.group(0) if match else ""
+    try:
+        req = json.loads(payload)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(req, dict):
+        return None
+    labels, grading = str(req.get("labels", "")).lower(), str(req.get("grading", "")).lower()
+    if labels not in ("required", "optional", "none") or grading not in ("accuracy", "structural"):
+        return None
+    if grading == "accuracy":
+        labels = "required"            # accuracy can only be measured against labels
+    return {"labels": labels, "grading": grading, "task": str(req.get("task", "")),
+            "needs": str(req.get("needs", "")), "why": str(req.get("why", ""))}
+
+
+def _data_requirement(state, io):
+    """Write down what the learning objective needs from a dataset BEFORE any dataset is
+    suggested; every later step (suggesting, checking, building, grading) follows it."""
+    if state.get("data_requirement"):
+        return state["data_requirement"]
+    io.emit("log", text="Working out what the learning objective needs from a dataset...")
     response = call_claude(
-        system=CV_OPTIONS_SYSTEM_PROMPT if _is_cv(state) else OPTIONS_SYSTEM_PROMPT,
+        system=DATA_REQUIREMENT_PROMPT,
+        user=build_requirement_user_prompt(state["topic"], state.get("learning_objective", ""),
+                                           state.get("wiki_curriculum", "")),
+        max_tokens=600,
+    )
+    requirement = _parse_requirement(response)
+    if not requirement:
+        io.emit("notice", text="Could not read the data requirement; assuming labelled images "
+                               "graded by accuracy.")
+        requirement = dict(DEFAULT_REQUIREMENT)
+    return requirement
+
+
+def _generate_options(state, existing, ctx=None):
+    cv = _is_cv(state)
+    shown = [{k: v for k, v in o.items() if k != "verified"} for o in existing]
+    response = call_claude(
+        system=CV_OPTIONS_SYSTEM_PROMPT if cv else OPTIONS_SYSTEM_PROMPT,
         user=build_options_user_prompt(
             state["topic"], state.get("learning_objective", ""),
             state.get("research_output", ""), state.get("wiki_dataset_context", ""),
-            json.dumps(existing, indent=2) if existing else None,
+            json.dumps(shown, indent=2) if shown else None,
             curriculum=state.get("wiki_curriculum", ""),
+            requirement=ctx["requirement"] if cv and ctx else None,
+            rejected=ctx["rejected"] if cv and ctx else None,
         ),
         max_tokens=3000,
     )
     return _parse_options(response)
 
 
-def _select_option(state, options, io):
-    while True:
-        if not options:
-            io.emit("notice", text="No valid options were returned. Generating another set...")
-            options.extend(_generate_options(state, options))
+def _cv_options(state, existing, ctx, io):
+    """Suggest datasets, check each one against the real dataset, keep those that pass, and
+    feed the reasons for failures into the next round of suggestions."""
+    kept = []
+    for _ in range(OPTION_ROUNDS):
+        batch = _generate_options(state, existing + kept, ctx)
+        known = {(o.get("source"), o.get("source_id")) for o in existing + kept}
+        known |= {(r["source"], r["source_id"]) for r in ctx["rejected"]}
+        batch = [o for o in batch if (o.get("source"), o.get("source_id")) not in known]
+        if not batch:
             continue
-        io.emit("options", options=options)
+        io.emit("log", text=f"Checking {len(batch)} suggested datasets against the real data "
+                            f"(exists, has images, labels where needed, the named classes)...")
+        verify_options(batch, ctx["requirement"])
+        dropped = []
+        for option in batch:
+            check = option["verified"]
+            if check["status"] == "reject":
+                reason = "; ".join(check["reasons"])
+                ctx["rejected"].append({"source": option.get("source"),
+                                        "source_id": option.get("source_id"), "reason": reason})
+                dropped.append(f"{option.get('dataset')} (`{option.get('source_id')}`): {reason}")
+            else:
+                kept.append(option)
+        if dropped:
+            io.emit("notice", text="Dropped after checking the real dataset:\n- " + "\n- ".join(dropped))
+        if len(kept) >= MIN_VERIFIED_OPTIONS:
+            break
+    return kept
+
+
+def _normalize_requirement(current, change):
+    """Apply the human's change to the data requirement; accuracy always needs labels."""
+    updated = dict(current)
+    if change.get("labels") in ("required", "optional", "none"):
+        updated["labels"] = change["labels"]
+    if change.get("grading") in ("accuracy", "structural"):
+        updated["grading"] = change["grading"]
+    if updated["grading"] == "accuracy":
+        updated["labels"] = "required"
+    if updated != current:
+        updated["why"] = "set by the reviewer"
+    return updated
+
+
+def _recheck_options(options, ctx, io):
+    """After the requirement changes, check the listed options again and drop those that no
+    longer fit (their reasons join the feedback for later suggestions)."""
+    verify_options(options, ctx["requirement"])
+    dropped = [o for o in options if o["verified"]["status"] == "reject"]
+    for option in dropped:
+        reason = "; ".join(option["verified"]["reasons"])
+        ctx["rejected"].append({"source": option.get("source"), "source_id": option.get("source_id"),
+                                "reason": reason})
+        options.remove(option)
+    if dropped:
+        io.emit("notice", text="Dropped because they do not fit the changed requirement:\n- "
+                + "\n- ".join(f"{o.get('dataset')} (`{o.get('source_id')}`)" for o in dropped))
+
+
+def _select_option(state, options, io, more, ctx=None):
+    generate = not options
+    while True:
+        if generate:
+            io.emit("notice", text="No valid options were returned. Generating another set...")
+            options.extend(more(options))
+            generate = False
+        io.emit("options", options=options, requirement=ctx["requirement"] if ctx else None)
+        if not options:
+            io.emit("notice", text="Still no usable options. Ask for more options or change the topic.")
         choice = io.ask({"kind": "select_option", "n": len(options)})
+        if isinstance(choice, dict) and "requirement" in choice and ctx and ctx.get("requirement"):
+            ctx["requirement"] = _normalize_requirement(ctx["requirement"], choice["requirement"])
+            req = ctx["requirement"]
+            io.emit("log", text=f"Data requirement changed: labels {req['labels']}, graded by {req['grading']}.")
+            _recheck_options(options, ctx, io)
+            continue
+        choice = str(choice).strip().upper()
         if choice == "M":
-            new_options = _generate_options(state, options)
+            new_options = more(options)
             if new_options:
                 options.extend(new_options)
             else:
@@ -157,9 +282,9 @@ def _select_option(state, options, io):
             io.emit("notice", text="Choose an option number, M, or Q.")
 
 
-def _generate_design(state, selected, workspace, code, io):
+def _generate_design(state, selected, workspace, code, io, ctx=None):
     if _is_cv(state):
-        return _generate_image_design(state, selected, workspace, code, io)
+        return _generate_image_design(state, selected, workspace, code, io, ctx)
     before = _dataset_snapshot(workspace, code)
     response = call_claude_with_tools(
         system=DATASET_DRAFT_SYSTEM_PROMPT,
@@ -178,47 +303,68 @@ def _generate_design(state, selected, workspace, code, io):
     return plan, statement
 
 
-def _generate_image_design(state, selected, workspace, code, io):
-    """CV datasets: download and inspect the real dataset, let the human choose how much of it
-    to use, build the two image archives with fixed code, verify them, then draft the problem.
+def _generate_image_design(state, selected, workspace, code, io, ctx=None):
+    """CV datasets: download and inspect the real dataset (including where its labels live),
+    let the human choose the labels and how much of it to use, build the two archives with
+    fixed code in the dataset's own layout, verify them, then draft the problem.
     Returns None when the human goes back to the options."""
+    ctx = ctx if ctx is not None else {"requirement": dict(DEFAULT_REQUIREMENT), "rejected": [], "layout": None}
+    requirement = ctx["requirement"]
     source, source_id = selected.get("source"), selected.get("source_id")
+
+    def reject(reason):
+        ctx["rejected"].append({"source": source, "source_id": source_id, "reason": reason})
+        io.emit("notice", text=f"[!] Could not use this dataset: {reason}")
+        return "", ""
+
     io.emit("log", text=f"Downloading and inspecting {selected.get('dataset') or source_id} "
                         f"({source}). The first download of a dataset can take a few minutes...")
     try:
         info = inspect_dataset(source, source_id)
     except Exception as exc:  # noqa: BLE001 - network/source failures are reported, not fatal
-        io.emit("notice", text=f"[!] Could not use this dataset: {exc}")
-        return "", ""
+        return reject(str(exc))
+    needs_labels = requirement["labels"] == "required"
+    if needs_labels and not any(s["labelled"] for s in info["label_sources"]):
+        return reject("the objective needs labelled images, but no labels were found in the download "
+                      "(no class folders and no label table)")
 
-    defaults = default_choice(info, selected.get("classes"))
-    choice = io.ask({"kind": "image_sample", "info": info, "defaults": defaults})
+    defaults = default_choice(info, selected.get("classes"), use_labels=requirement["labels"] != "none")
+    choice = io.ask({"kind": "image_sample", "info": info, "defaults": defaults, "requirement": requirement})
     if isinstance(choice, dict) and choice.get("back"):
         return None
-    if not isinstance(choice, dict) or len(choice.get("classes") or []) < 2:
+    if not isinstance(choice, dict) or not choice.get("classes"):
         choice = defaults
+    src = source_by_key(info, choice.get("label_source") or defaults["label_source"])
+    if (needs_labels and not src["labelled"]) or (src["labelled"] and len(choice["classes"]) < 2):
+        io.emit("notice", text="That choice does not fit the data requirement; using the defaults instead.")
+        choice = defaults
+        src = source_by_key(info, choice["label_source"])
 
-    io.emit("log", text="Copying the chosen images into the student and hidden test archives...")
+    io.emit("log", text="Copying the chosen images (original names and folders) into the student "
+                        "and hidden test archives...")
     try:
-        split_info = build_archives(source, source_id, choice, workspace, code)
+        built = build_archives(source, source_id, choice, workspace, code)
     except Exception as exc:  # noqa: BLE001 - e.g. too few readable images in a class
         io.emit("notice", text=f"[!] Could not build the image archives: {exc}")
         return "", ""
-    summary, problems, warnings = validate_image_dataset(workspace, code)
+    layout = built["layout"]
+    layout["grading"] = requirement["grading"] if layout["labelled"] else "structural"
+    summary, problems, warnings = validate_image_dataset(workspace, code, layout)
     if problems:
         io.emit("notice", text="[!] The image dataset failed verification:\n- " + "\n- ".join(problems))
         return "", ""
     for warning in warnings:
         io.emit("notice", text=warning)
+    ctx["layout"] = layout
 
-    plan = _image_plan(info, choice, summary, code, split_info)
+    plan = _image_plan(info, src, choice, summary, built)
     io.emit("log", text="Writing the problem statement from the verified dataset...")
     response = call_claude(
         system=CV_PROBLEM_STATEMENT_PROMPT,
         user=build_image_statement_user_prompt(
             state["topic"], state.get("learning_objective", ""), selected,
             state.get("research_output", ""), plan, _question_reference_formats(),
-            state.get("wiki_curriculum", ""),
+            state.get("wiki_curriculum", ""), grading=layout["grading"],
         ),
         max_tokens=5000,
     )
@@ -226,23 +372,37 @@ def _generate_image_design(state, selected, workspace, code, io):
     return plan, statement
 
 
-def _image_plan(info, choice, summary, code, split_info):
+def _image_plan(info, src, choice, summary, built):
     """Dataset plan built from verified facts only (no model involved)."""
-    amount = ("every image of each class" if choice.get("use_all")
-              else f"{choice['images_per_class']} images per class")
-    verified = "\n".join(f"- {line}" for line in describe(summary).splitlines())
-    hidden = ("hidden images come from the dataset's own official test split" if split_info.get("official_split")
-              else f"{round(choice['test_fraction'] * 100)}% of each class held back at random for grading")
+    layout = built["layout"]
+    n = choice["images_per_class"]
+    if src["labelled"]:
+        full = f"{len(src['classes'])} classes, {src['total']:,} labelled images"
+        amount = "every image of each class" if choice.get("use_all") else f"{n} images per class"
+        chosen = f"{len(choice['classes'])} classes, {amount}"
+        held = f"{round(choice['test_fraction'] * 100)}% of each class held back at random for grading"
+    else:
+        full = f"{src['total']:,} images, no labels"
+        chosen = "every image" if choice.get("use_all") else f"{n} images"
+        held = f"{round(choice['test_fraction'] * 100)}% held back at random for grading"
+    hidden = ("hidden images come from the dataset's own official test split" if built.get("official_split")
+              else held)
     variant = (f"\n\n**Variant used:** `{info['variant_used']}` (the download also has "
                f"{', '.join(v for v in info['variants'] if v != info['variant_used'])})"
-               if info.get("variants") else "")
+               if info.get("variants") and src["kind"] == "folders" else "")
+    grading = ("accuracy on the hidden labelled images" if layout["grading"] == "accuracy"
+               else "structural checks of what the notebook produces (no accuracy threshold)")
+    verified = "\n".join(f"- {line}" for line in describe(summary).splitlines())
+    layout_lines = "\n".join(f"    {line.strip()}" if line.startswith("  - ") else f"- {line}"
+                             for line in describe_layout(layout).splitlines())
     return (
         f"**Source:** {info['source']} · `{info['source_id']}` ({info['name']})\n\n"
-        f"**Full dataset:** {len(info['classes'])} classes, {info['total']:,} images{variant}\n\n"
-        f"**Chosen:** {len(choice['classes'])} classes, {amount}; {hidden}; "
-        f"duplicate and unreadable images skipped; images keep their original size and format\n\n"
-        f"**Files:** `{images_zip_name(code)}` (students get this), "
-        f"`{test_images_zip_relname(code)}` (hidden, grading only)\n\n"
+        f"**Labels:** {src['title']}\n\n"
+        f"**Full dataset:** {full}{variant}\n\n"
+        f"**Chosen:** {chosen}; {hidden}; duplicate and unreadable images skipped; images keep their "
+        f"original names, folders, size and format\n\n"
+        f"**Grading:** {grading}\n\n"
+        f"**Layout (verified):**\n\n{layout_lines}\n\n"
         f"**Verified by the pipeline:**\n\n{verified}"
     )
 
@@ -363,24 +523,34 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
     io.emit("log", text="AGENT 2: PROBLEM + DATASET DESIGNER\n"
                         "Phase 1 generates options only. No dataset is downloaded before selection.")
 
+    cv = _is_cv(state)
+    ctx = {"requirement": _data_requirement(state, io) if cv else None, "rejected": [], "layout": None}
+    if cv:
+        req = ctx["requirement"]
+        io.emit("log", text=f"Data requirement: labels {req['labels']}, graded by {req['grading']}. "
+                            f"{req.get('needs', '')}")
+
+    def more(existing):
+        return _cv_options(state, existing, ctx, io) if cv else _generate_options(state, existing)
+
     options = list(state.get("options_table") or state.get("problem_dataset_options") or [])
     if not options:
-        options.extend(_generate_options(state, options))
+        options.extend(more(options))
 
     while True:
-        selected = _select_option(state, options, io)
+        selected = _select_option(state, options, io, more, ctx)
         if selected is None:
             return {
                 "options_table": options,
                 "problem_dataset_options": options,
                 "selected_option": None,
+                "data_requirement": ctx["requirement"],
                 "approved": False,
                 "current_stage": "problem_options_rejected",
             }
 
         io.emit("log", text="Phase 2: obtaining and inspecting the selected dataset...")
-        cv = _is_cv(state)
-        design = _generate_design(state, selected, workspace, code, io)
+        design = _generate_design(state, selected, workspace, code, io, ctx)
         if design is None:                      # Back to options from the image panel
             continue
         plan, statement = design
@@ -389,7 +559,7 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
                                    "(see the message above).")
             recovery = io.ask({"kind": "recovery", "assignment_type": state.get("assignment_type")})
             if recovery == "R":
-                design = _generate_design(state, selected, workspace, code, io)
+                design = _generate_design(state, selected, workspace, code, io, ctx)
                 if design is None:
                     continue
                 plan, statement = design
@@ -423,6 +593,8 @@ def problem_dataset_agent(state: dict, io=None) -> dict:
                     "dataset_files_path": workspace,
                     "output_dir": workspace,
                     "dataset_modification_notes": modification_notes,
+                    "data_requirement": ctx["requirement"],
+                    "dataset_layout": ctx["layout"] if cv else None,
                     "approved": True,
                     "current_stage": "problem_dataset_done",
                 }

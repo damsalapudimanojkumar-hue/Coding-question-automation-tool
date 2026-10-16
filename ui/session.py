@@ -19,7 +19,7 @@ Ask `spec` is a dict with a "kind" plus optional fields. Answer conventions
     recovery      -> "R" | "S" | "B"
     draft_action  -> "A" | "EP" | "ED" | "SD" | "B"
     eval_action   -> "A" | "D" | "R"
-    image_sample  -> {classes, images_per_class, use_all, test_fraction} | {"back": True}
+    image_sample  -> {label_source, classes, images_per_class, use_all, test_fraction} | {"back": True}
                      (CLI answers anything else, which means "use the defaults")
     text          -> free text (spec["prompt"])
     discuss       -> free text incl. "accept" / "back"

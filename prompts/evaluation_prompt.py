@@ -292,38 +292,86 @@ each file was written by listing what was created.
 """
 
 
-IMAGE_DATA_NOTE = """THIS IS AN IMAGE ASSIGNMENT (real images in class folders). There are NO CSV files:
-never create, read, or mention dataset_train/dataset_test/ground_truth CSVs for this assignment.
-- Students get only the training archive. The first code cell of solution.ipynb (and of every solution
-  variant) extracts it relative to the pytest root:
-  zipfile.ZipFile("<training archive name>").extractall("images")
-  and loads it with torchvision.datasets.ImageFolder("images/train", transform=...).
-- Use torchvision.transforms and torch. Never download data and never generate random or synthetic images.
-- Images keep their ORIGINAL sizes and formats, which may differ between images, so every transform
-  (training and eval_transform) must resize to one fixed size before ToTensor.
-- The reference solution trains a SMALL CNN from scratch on CPU (a few conv layers), seeded
-  (torch.manual_seed(42)), with total training time well under 60 seconds (e.g. resize to 64x64 and
-  decode each image once, caching the tensors, instead of re-decoding large images every epoch).
-  No pretrained weights.
-- ACCURACY TARGET: the problem statement says {{ACCURACY_THRESHOLD}} instead of a number. In Phase 1,
-  propose the threshold from the reference run (clearly above the lazy baseline, with headroom below
-  the reference accuracy). In Phase 2, replace EVERY {{ACCURACY_THRESHOLD}} in question.json and in
-  solution.ipynb with the approved threshold written as a percentage (e.g. 55%), and use the same
-  value in test_solution.py. No {{ACCURACY_THRESHOLD}} may remain in any generated file.
-- The notebook keeps its trained network in a variable named `model` (torch.nn.Module) and its
-  evaluation transform in `eval_transform`. It does not need to predict anything itself.
-- Grading uses the hidden test archive in tests/. conftest.py execs the notebook (as in the worked
-  examples), finds `model` and `eval_transform`, extracts the hidden archive into a temporary directory
-  (tempfile.mkdtemp, never inside the workspace), loads it with
-  ImageFolder(<tmp>/test, transform=eval_transform), runs model.eval() under torch.no_grad() one image
-  at a time (so a student transform that forgets to resize fails the accuracy test with a clear
-  message instead of crashing batch collation), and computes accuracy against the folder labels. ImageFolder sorts class names alphabetically, so the
-  student's class indices and the hidden set's indices match.
-- Tests: notebook runs; `model` is a trained torch.nn.Module; `eval_transform` exists (and any
-  structure the problem statement requires); accuracy on the hidden images meets a threshold
-  calibrated from the reference run. The lazy baseline (always the most common class) must FAIL it.
-- When you trial-run code yourself, extract archives into tempfile directories, never the workspace.
-- The platform session type is DSML_DL (torch and torchvision pre-installed); requirements.txt stays pytest only."""
+def build_image_data_note(layout: dict) -> str:
+    """Instructions for an image assignment, written from the dataset's verified layout
+    (tools.image_layout) instead of assuming one fixed folder structure."""
+    import json
+    from tools.image_layout import describe_layout, loader_source
+
+    accuracy = layout.get("grading", "accuracy") == "accuracy" and layout.get("labelled", True)
+    hidden = json.dumps(layout["hidden"])
+    lines = [
+        "THIS IS AN IMAGE ASSIGNMENT using a real dataset in its original layout. Never create, read, or",
+        "mention dataset_train/dataset_test/ground_truth CSVs; the only tables are the dataset's own ones",
+        "described below.",
+        "",
+        "VERIFIED DATA LAYOUT (built and checked by the pipeline):",
+        describe_layout(layout),
+        "",
+        "- Students get only the student archive. The first code cell of solution.ipynb (and of every",
+        "  solution variant) extracts it relative to the pytest root:",
+        f'  zipfile.ZipFile("{layout["student_archive"]}").extractall("images")',
+        "  so every path in the layout is then under images/. Load the images exactly as the layout says:",
+        "  class folders with torchvision.datasets.ImageFolder (one per folder, combined with",
+        "  torch.utils.data.ConcatDataset if there are several); a label table by reading it with pandas or csv",
+        "  and opening each image it names; unlabelled images by listing the files. Never glob a single file",
+        "  extension: formats may differ.",
+        "- Open images with PIL and .convert(\"RGB\") (ImageFolder already does this).",
+        "- Use torchvision.transforms and torch. Never download data and never generate random or synthetic",
+        "  images.",
+        "- Images keep their ORIGINAL sizes and formats, which may differ between images, so every transform",
+        "  must resize to one fixed size before ToTensor.",
+        "- The reference solution trains a SMALL network from scratch on CPU, seeded (torch.manual_seed(42)),",
+        "  with total training time well under 60 seconds (e.g. resize to 64x64 and decode each image once,",
+        "  caching the tensors). No pretrained weights.",
+        "- conftest.py reads the hidden archive with this exact helper (copy it verbatim, it is the same code",
+        "  the pipeline used to verify the archive) and this exact spec:",
+        "```python",
+        loader_source().rstrip(),
+        "",
+        f"HIDDEN_LAYOUT = {hidden}",
+        "```",
+        "  It extracts the hidden archive into tempfile.mkdtemp() (never inside the workspace) and",
+        "  iter_dataset(tmp_dir, HIDDEN_LAYOUT) then yields (image path, label) for every hidden image",
+        "  (label is None when the dataset is unlabelled).",
+    ]
+    if accuracy:
+        lines += [
+            "",
+            "GRADING: accuracy on the hidden images.",
+            f"- CLASS_ORDER = {json.dumps(layout['class_order'])}: the model's output index i means",
+            "  CLASS_ORDER[i]. The student's code and the reference solution must number classes in this order.",
+            "- ACCURACY TARGET: the problem statement says {{ACCURACY_THRESHOLD}} instead of a number. In Phase 1,",
+            "  propose the threshold from the reference run (clearly above the lazy baseline, with headroom below",
+            "  the reference accuracy). In Phase 2, replace EVERY {{ACCURACY_THRESHOLD}} in question.json and in",
+            "  solution.ipynb with the approved threshold written as a percentage (e.g. 55%), and use the same",
+            "  value in test_solution.py. No {{ACCURACY_THRESHOLD}} may remain in any generated file.",
+            "- The notebook keeps its trained network in a variable named `model` (torch.nn.Module) and its",
+            "  evaluation transform in `eval_transform`. It does not need to predict anything itself.",
+            "- conftest.py execs the notebook (as in the worked examples), finds `model` and `eval_transform`,",
+            "  and for each hidden (path, label): opens the image with PIL, converts it to RGB, applies",
+            "  eval_transform, runs model.eval() under torch.no_grad() one image at a time (so a transform that",
+            "  forgets to resize fails the accuracy test with a clear message instead of crashing), and compares",
+            "  CLASS_ORDER[argmax] with the label.",
+            "- Tests: notebook runs; `model` is a trained torch.nn.Module; `eval_transform` exists (and any",
+            "  structure the problem statement requires); accuracy on the hidden images meets the calibrated",
+            "  threshold. The lazy baseline (always the most common class) must FAIL it.",
+        ]
+    else:
+        lines += [
+            "",
+            "GRADING: structural (no accuracy threshold).",
+            "- Do not use {{ACCURACY_THRESHOLD}} anywhere and do not test accuracy against labels.",
+            "- Tests check what the problem statement asks the notebook to produce (variables, shapes, value",
+            "  ranges, losses going down, outputs computed on the hidden images through the helper above) and",
+            "  must FAIL for a lazy or empty solution.",
+        ]
+    lines += [
+        "- When you trial-run code yourself, extract archives into tempfile directories, never the workspace.",
+        "- The platform session type is DSML_DL (torch and torchvision pre-installed); requirements.txt stays",
+        "  pytest only.",
+    ]
+    return "\n".join(lines)
 
 
 def build_phase1_user_prompt(

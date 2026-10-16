@@ -33,14 +33,14 @@ from claude_client import call_claude_with_tools
 from naming import (filename_instructions, asset_relnames, images_zip_name, make_code,
                     test_images_zip_relname)
 from prompts.problem_dataset_prompt import ACCURACY_PLACEHOLDER
-from tools.image_dataset import remove_extracted_images
+from tools.image_dataset import default_layout, remove_extracted_images
 from ui.session import TerminalIO
 from tracing import observe
 from tools.local_tools import ALL_TOOLS, tool_executor
 from prompts.evaluation_prompt import (
     EVALUATION_PHASE1_PROMPT,
     EVALUATION_PHASE2_PROMPT,
-    IMAGE_DATA_NOTE,
+    build_image_data_note,
     build_phase1_user_prompt,
     build_phase2_user_prompt,
 )
@@ -239,9 +239,11 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
     wiki_examples = state.get("wiki_examples", "")
     code = state.get("assignment_code") or make_code(topic)
     image_data = state.get("assignment_type") == "cv"
+    layout = (state.get("dataset_layout") or default_layout(code)) if image_data else None
+    accuracy_graded = bool(layout) and layout.get("grading", "accuracy") == "accuracy" and layout["labelled"]
     filenames = filename_instructions(code, image_data=image_data)
     if image_data:
-        filenames += "\n\n" + IMAGE_DATA_NOTE
+        filenames += "\n\n" + build_image_data_note(layout)
     curriculum = state.get("wiki_curriculum", "")
     eval_styles = state.get("wiki_eval_styles", "")
 
@@ -361,7 +363,7 @@ def evaluation_designer_agent(state: dict, io=None) -> dict:
                                 + ", ".join(removed))
         unfilled = _files_containing(workspace, [question_file or "question.json", "solution.ipynb",
                                                  os.path.join("tests", "test_solution.py")],
-                                     ACCURACY_PLACEHOLDER)
+                                     ACCURACY_PLACEHOLDER) if accuracy_graded else []
         if unfilled:
             io.emit("notice", text=f"[!] The accuracy target was not filled in ({ACCURACY_PLACEHOLDER} "
                                    f"is still in {', '.join(unfilled)}). Replace it before shipping.")

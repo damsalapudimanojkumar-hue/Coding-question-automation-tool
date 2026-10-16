@@ -47,6 +47,9 @@ class AssignmentState(TypedDict):
     dataset_plan: Optional[str]                     # final approved
     dataset_files: Optional[Dict]                   # {filename: path}
     dataset_files_path: Optional[str]
+    # CV: what the learning objective needs from a dataset, and how the built archives are laid out
+    data_requirement: Optional[Dict]   # {labels: required|optional|none, grading: accuracy|structural, ...}
+    dataset_layout: Optional[Dict]     # see tools/image_layout.py (label source, specs, class order, grading)
 
     # ── Code-editor mode (config_type == code_editor_type) ────────────────
     codeeditor_config: Optional[Dict]     # approved question config for the generator

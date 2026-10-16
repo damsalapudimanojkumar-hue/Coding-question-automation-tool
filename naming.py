@@ -56,13 +56,13 @@ def asset_paths(workspace: str, code: str) -> dict:
 
 
 def images_zip_name(code: str) -> str:
-    """Student-facing archive of TRAINING images in class folders. One file
+    """Student-facing archive of TRAINING images in the dataset's own layout. One file
     instead of hundreds keeps GitHub saves and S3 uploads to a single request."""
     return f"images_{code}.zip"
 
 
 def test_images_zip_relname(code: str) -> str:
-    """Hidden held-out images (also in class folders), shipped only inside tests/."""
+    """Hidden held-out images (same layout as the student archive), shipped only inside tests/."""
     return f"tests/test_images_{code}.zip"
 
 
@@ -76,13 +76,11 @@ def filename_instructions(code: str, workspace: str = None, image_data: bool = F
         root = f"{workspace}/" if workspace else ""
         return (
             "EXACT DATA FILES FOR THIS IMAGE DATASET (use these names precisely, never S3 URLs).\n"
-            "There are NO CSV files for image datasets; labels come from folder names.\n"
-            f"- training images (students get this) -> {root}{images_zip_name(code)}\n"
-            "    inside it: train/<class_name>/<image file>\n"
-            f"- hidden test images (graders only)   -> {root}{test_images_zip_relname(code)}\n"
-            "    inside it: test/<class_name>/<image file>\n"
-            "Image files keep their ORIGINAL format (.jpg, .jpeg, .png, .ppm, .bmp, .tif, .webp) and size.\n"
-            "Load them with torchvision.datasets.ImageFolder; never glob a single file extension.\n"
+            f"- student images (students get this) -> {root}{images_zip_name(code)}\n"
+            f"- hidden test images (graders only)  -> {root}{test_images_zip_relname(code)}\n"
+            "What is inside each archive (its folders and, if any, the dataset's own label table) is\n"
+            "given in the VERIFIED DATA LAYOUT; follow it rather than assuming a structure.\n"
+            "Image files keep their ORIGINAL names, format and size; never glob a single file extension.\n"
             "conftest.py, pytest.ini, requirements.txt keep their exact generic names."
         )
     if workspace:
