@@ -1,0 +1,49 @@
+[
+  {
+    "question_id": "c2fec3be-0f18-4a2a-b722-3a1b6204c7c1",
+    "question_text": "## Recycling Bin Classifier: Smart Waste Sorting with Image Transforms\n\nA **smart recycling facility** needs a computer vision system that identifies waste categories from photographs taken on a conveyor belt. Images arrive at different sizes and orientations, so every image must pass through a carefully designed preprocessing and augmentation pipeline before a model can use it.\n\nYour task is to build those pipelines, attach them to datasets, and verify that every output tensor has a consistent shape and the correct numerical properties.\n\n---\n\n### Dataset\n\nThe archive `images_TRANSF.zip` is extracted by the notebook's first cell. It contains the folder `garbage_classification/`, which has one subfolder per waste class. Every image inside a subfolder belongs to the class named by that subfolder.\n\n| Property | Detail |\n|---|---|\n| Classes (alphabetical, index 0-4) | `cardboard`, `metal`, `paper`, `plastic`, `trash` |\n| Image sizes | 220x135 to 512x384 pixels (vary across samples) |\n| Format | JPEG, RGB |\n\nBecause image sizes vary, your transforms must resize every image to a single fixed spatial size so that all output tensors share the same shape.\n\n---\n\n### Tasks\n\n1. Build a `train_transform` pipeline using `transforms.Compose` that resizes every image to 64x64, applies at least one geometric augmentation (such as a random horizontal flip, rotation, or crop), applies at least one colour or appearance augmentation (such as `ColorJitter`), converts the result to a float32 tensor, normalises using ImageNet mean and standard deviation, and applies `RandomErasing` after the tensor is formed.\n\n2. Build a `test_transform` pipeline using `transforms.Compose` that resizes every image to 64x64, converts it to a float32 tensor, and normalises using the same ImageNet mean and standard deviation. No augmentation steps should appear in this pipeline.\n\n3. Attach `train_transform` to a `torchvision.datasets.ImageFolder` dataset pointed at the `images/garbage_classification/` folder and store it in a variable named `train_data`. Attach `test_transform` to a second `ImageFolder` over the same folder and store it in a variable named `test_data`.\n\n4. Fetch one sample from each dataset and confirm that the output tensor has shape `[3, 64, 64]` and dtype `torch.float32`. Store one such tensor from `train_data` in `sample_tensor_train` and the corresponding tensor from `test_data` in `sample_tensor_test`.\n\n5. Demonstrate that the training pipeline is stochastic and the test pipeline is deterministic: fetch the image at index 0 from `train_data` twice and show the two tensors differ; fetch the same index from `test_data` twice and show the two tensors are identical.\n\n---\n\n### Expected Output\n\n| Variable | Required content |\n|---|---|\n| `train_transform` | A `transforms.Compose` object that includes resizing to 64x64, at least one geometric augmentation, `ColorJitter`, `ToTensor`, `Normalize`, and `RandomErasing` in a valid order |\n| `test_transform` | A `transforms.Compose` object containing exactly `Resize((64,64))`, `ToTensor`, and `Normalize` in that order, with no augmentation |\n| `train_data` | An `ImageFolder` dataset with `transform=train_transform` |\n| `test_data` | An `ImageFolder` dataset with `transform=test_transform` |\n| `sample_tensor_train` | A `torch.Tensor` of shape `[3, 64, 64]` and dtype `torch.float32` drawn from `train_data` |\n| `sample_tensor_test` | A `torch.Tensor` of shape `[3, 64, 64]` and dtype `torch.float32` drawn from `test_data` |\n\n---\n\n### Important Instructions\n\nThe data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\n\nEvery transform that operates on a PIL Image (such as `Resize`, `RandomHorizontalFlip`, `ColorJitter`, and `RandomCrop`) must appear **before** `ToTensor` in your pipeline. `Normalize` and `RandomErasing` operate on tensors and must appear **after** `ToTensor`.\n\nDo not place any augmentation transforms inside `test_transform`. The test pipeline must return the same tensor every time it is called on the same image.\n\nUse `Resize((64, 64))` (a tuple, not a single integer) to ensure the size check passes. If you use `RandomCrop` instead of `RandomResizedCrop`, first resize to a size strictly larger than 64 so the crop always produces a 64x64 output.\n\nStore your datasets in the **exact variable names** `train_data` and `test_data`.",
+    "short_text": "Smart Waste Sorting: Image Transform Pipelines for Garbage Classification",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_image_transforms_garbage_classification",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "2b0b34e9-ee2f-4aee-9fc7-8718a7c62b42",
+    "test_cases": [
+      {
+        "test_case_enum": "PY1",
+        "display_text": "The solution should run without any errors.",
+        "weightage": 10
+      },
+      {
+        "test_case_enum": "PY2",
+        "display_text": "test_transform should contain exactly Resize((64,64)), ToTensor, and Normalize in that order, use the same normalisation values as train_transform, and produce identical outputs each time it is applied to the same image.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY3",
+        "display_text": "train_transform should include at least one geometric augmentation, at least one colour augmentation (such as ColorJitter), and RandomErasing.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY4",
+        "display_text": "All PIL-level transforms in train_transform (Resize, flips, rotations, crops, ColorJitter) should appear before ToTensor, and Normalize and RandomErasing should appear after ToTensor.",
+        "weightage": 15
+      },
+      {
+        "test_case_enum": "PY5",
+        "display_text": "train_transform should produce tensors of shape [3, 64, 64] and dtype float32, and should give different results when applied multiple times to the same image.",
+        "weightage": 15
+      },
+      {
+        "test_case_enum": "PY6",
+        "display_text": "train_data should be an ImageFolder with train_transform attached, and test_data should be an ImageFolder with test_transform attached. The two datasets must use different transform objects and each should contain all 360 images.",
+        "weightage": 20
+      }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+  }
+]
