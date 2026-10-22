@@ -1,0 +1,44 @@
+[
+  {
+    "question_id": "4a9797ae-b925-48fb-9095-2ee22cc70baf",
+    "question_text": "## Wild Animal Species: ImageNet Inference with the Multi-Weights API\n\nA **wildlife research platform** wants to automatically tag photographs of animals using a pretrained deep learning model. Instead of training from scratch, the team will load a stock EfficientNet_B0 through torchvision's Multi-Weights API, apply the preprocessing bundle that ships with the weights, and confirm that the model correctly identifies each animal species by its ImageNet class name.\n\n---\n\n### Dataset\n\nThe notebook's first cell extracts `images_TRNSF1.zip`. After extraction the data lives under `animals/animals/`, with one subfolder per species. Every image inside a subfolder belongs to the class named by that folder.\n\nThe five classes are:\n\n| Index | Class |\n|-------|-------|\n| 0 | `elephant` |\n| 1 | `flamingo` |\n| 2 | `gorilla` |\n| 3 | `panda` |\n| 4 | `zebra` |\n\nImages range from 196x256 to 4410x3090 pixels in their original sizes, so your preprocessing transform must resize every image to one fixed spatial dimension before passing it to the model.\n\n---\n\n### Tasks\n\n1. Load `EfficientNet_B0_Weights.DEFAULT` as the weights object and build the EfficientNet_B0 model from that weights object using the `weights=` keyword argument, not the deprecated `pretrained=True` flag.\n\n2. Obtain the preprocessing transform by calling `weights.transforms()` on the loaded weights object rather than writing a manual `Compose` with hardcoded resize, crop, or normalization values.\n\n3. For each image in the dataset, open it with PIL, convert it to RGB, apply the transform, and add a batch dimension so the tensor fed to the model has shape `(1, 3, H, W)`.\n\n4. Put the model in evaluation mode and run inference inside a `torch.no_grad()` block.\n\n5. Retrieve the list of ImageNet class names from `weights.meta[\"categories\"]` and map the highest-scoring output index to a predicted class name for each image. Store all predictions in a variable called `predictions` as a list of strings.\n\n6. Inspect `model.classifier` to read the `in_features` and `out_features` of its `Linear` layer directly from the model object. Store these two integers in variables called `classifier_in_features` and `classifier_out_features`.\n\n---\n\n### Expected Output\n\n| Variable | What it must contain |\n|---|---|\n| `model` | The loaded `EfficientNet_B0` `torch.nn.Module` in evaluation mode |\n| `predictions` | A Python list of ImageNet class-name strings, one per image processed |\n| `classifier_in_features` | Integer read from `model.classifier`'s `Linear` layer: the number of input features |\n| `classifier_out_features` | Integer read from `model.classifier`'s `Linear` layer: the number of output classes |\n\n---\n\n### Important Instructions\n\nThe data loading and required libraries are **pre-filled** in your notebook. Do **not** modify them.\n\nAlways obtain your preprocessing transform from `weights.transforms()` rather than constructing a `Compose` pipeline by hand. Using the weights bundle's own transform is a graded requirement, not a convenience.\n\nCall `model.eval()` before running any inference. Skipping this step changes the behaviour of BatchNorm layers and will produce incorrect predictions.\n\nRead `classifier_in_features` and `classifier_out_features` from the model object at runtime. Do not hardcode any architecture constants.",
+    "short_text": "Wild Animal Species: ImageNet Inference with EfficientNet_B0 Multi-Weights API",
+    "toughness": "MEDIUM",
+    "content_type": "MARKDOWN",
+    "question_type": "IDE_BASED_CODING",
+    "question_key": "coding_practice_efficientnet_multi_weights_imagenet_inference",
+    "question_asked_by_companies_info": [],
+    "question_format": "CODING_PRACTICE",
+    "ide_session_id": "0281d80b-cdc1-467d-9aea-8fe171fe0803",
+    "test_cases": [
+      {
+        "test_case_enum": "PY1",
+        "display_text": "The solution should run without any errors.",
+        "weightage": 10
+      },
+      {
+        "test_case_enum": "PY2",
+        "display_text": "An EfficientNet_B0 model should be built and placed in evaluation mode before inference.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY3",
+        "display_text": "The predictions variable should be a list of 210 valid ImageNet class-name strings, one per image. Folder names like 'elephant' or 'panda' are not ImageNet class names -- use weights.meta[\"categories\"] to get the correct names.",
+        "weightage": 20
+      },
+      {
+        "test_case_enum": "PY4",
+        "display_text": "classifier_in_features should be 1280 and classifier_out_features should be 1000 -- read these from model.classifier's Linear layer at runtime.",
+        "weightage": 25
+      },
+      {
+        "test_case_enum": "PY5",
+        "display_text": "The model should produce valid and diverse ImageNet predictions on unseen animal images.",
+        "weightage": 25
+      }
+    ],
+    "multimedia": [],
+    "language": "ENGLISH",
+    "solutions_metadata": []
+  }
+]
